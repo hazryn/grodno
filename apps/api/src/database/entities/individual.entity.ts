@@ -41,6 +41,10 @@ export class Individual {
   @Column({ default: false })
   isLiving: boolean;
 
+  /** Czy WIEMY, że osoba zmarła (jest DEAT albo bardzo dawne urodzenie). Różne od !isLiving. */
+  @Column({ default: false })
+  deceased: boolean;
+
   @Column({ type: 'jsonb', nullable: true })
   birthDate: GedcomDateValue | null;
 

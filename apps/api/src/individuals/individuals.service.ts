@@ -45,6 +45,7 @@ export class IndividualsService {
       birthplace: indi.birthPlaceTown,
       birthplaceFull: indi.birthPlaceFull,
       photoUrl: indi.photoUrl,
+      deceased: indi.deceased,
       hasParents: indi.hasParents,
       childCount: indi.childCount,
       isLiving: indi.isLiving,

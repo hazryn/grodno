@@ -223,7 +223,8 @@ export class GedcomImportService {
       }
     }
 
-    indi.lifespan = this.buildLifespan(indi.birthYear, indi.deathYear);
+    indi.deceased = this.guessDeceased(indi.birthYear, hasDeathTag);
+    indi.lifespan = this.buildLifespan(indi.birthYear, indi.deathYear, indi.deceased, indi.sex);
     indi.isLiving = this.guessLiving(indi.birthYear, hasDeathTag);
     indi.hasParents = false;
     indi.childCount = 0;
@@ -384,9 +385,27 @@ export class GedcomImportService {
     return `${base}/${encodeURIComponent(key)}`;
   }
 
-  private buildLifespan(birth: number | null, death: number | null): string | null {
-    if (birth === null && death === null) return null;
-    return `${birth ?? ''}–${death ?? ''}`;
+  private guessDeceased(birthYear: number | null | undefined, hasDeathTag: boolean): boolean {
+    if (hasDeathTag) return true;
+    const b = birthYear ?? null;
+    // Brak DEAT, ale bardzo dawne urodzenie → na pewno nie żyje. „Nieznany" (brak roku) ≠ zmarły.
+    return b !== null && new Date().getFullYear() - b > 120;
+  }
+
+  private buildLifespan(
+    birth: number | null | undefined,
+    death: number | null | undefined,
+    isDeceased: boolean,
+    sex: string,
+  ): string | null {
+    const b = birth ?? null;
+    const d = death ?? null;
+    const word = sex === 'F' ? 'zmarła' : sex === 'M' ? 'zmarły' : 'zmarły/a';
+    if (b !== null && d !== null) return `${b} – ${d}`;
+    if (d !== null) return `– ${d}`;
+    // Żyjący → sam rok urodzenia (bez kreski i daty śmierci).
+    if (b !== null) return isDeceased ? `${b} – ${word}` : `${b}`;
+    return isDeceased ? word : null;
   }
 
   private guessLiving(birthYear: number | null, hasDeathTag: boolean): boolean {

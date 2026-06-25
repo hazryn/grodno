@@ -26,6 +26,8 @@ export interface PersonCard {
   /** Pełny zapis miejsca do tooltipa. */
   birthplaceFull: string | null;
   photoUrl: string | null;
+  /** Czy WIEMY, że osoba zmarła (wstążka żałobna). Różne od !isLiving (nieznany ≠ zmarły). */
+  deceased: boolean;
   /** Czy osoba ma rodziców → przycisk "rozwiń w górę". */
   hasParents: boolean;
   /** Liczba dzieci (po wszystkich związkach) → przycisk "rozwiń w dół". */

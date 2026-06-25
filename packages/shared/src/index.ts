@@ -23,4 +23,4 @@ export type {
   FamilyDto,
 } from './domain.js';
 
-export type { PersonCard, Bundle, BundlePayload, SpouseRelation } from './bundle.js';
+export type { PersonCard, Bundle, BundlePayload, SpouseRelation, Union } from './bundle.js';

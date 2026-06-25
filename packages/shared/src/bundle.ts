@@ -40,6 +40,13 @@ export interface PersonCard {
 /** Typ związku osoby z `spouse`: ślub (jest zdarzenie MARR) vs partner (dzieci bez MARR). */
 export type SpouseRelation = 'married' | 'partner';
 
+/** Jeden związek osoby: małżonek/partner + jego typ + dzieci z tego związku. */
+export interface Union {
+  spouse: PersonCard | null;
+  relation: SpouseRelation | null;
+  children: PersonCard[];
+}
+
 export interface Bundle {
   self: PersonCard;
   father: PersonCard | null;
@@ -48,6 +55,8 @@ export interface Bundle {
   /** Rodzaj związku z `spouse` (null gdy brak małżonka). */
   spouseRelation: SpouseRelation | null;
   children: PersonCard[];
+  /** WSZYSTKIE związki osoby (mąż/żona, potem partner itd.) — każdy z dziećmi. */
+  unions: Union[];
   /** Tylko dla focal-a: rodzeństwo (dzieci tych samych rodziców). */
   siblings?: PersonCard[];
 }

@@ -1,5 +1,11 @@
 import type { Bundle, BundlePayload, PersonCard, SpouseRelation } from '@rodno/shared';
 
+interface GraphUnion {
+  spouseId: string | null;
+  relation: SpouseRelation | null;
+  childIds: string[];
+}
+
 /**
  * Silnik drzewa Rodno — część "layout" (spec §11: layout odseparowany od renderera).
  * Widok rodzinny wokół focal-a:
@@ -57,10 +63,18 @@ export interface TreeLayout {
   height: number;
 }
 
+interface DUnion {
+  spouseId: string | null;
+  relation: SpouseRelation | null;
+  kids: DNode[];
+}
+
 interface DNode {
   id: string;
-  spouseId: string | null;
-  kids: DNode[];
+  /** Pierwszy związek → po prawej; drugi → po lewej; kolejne (extras) doklejone z prawej bez dzieci. */
+  right: DUnion | null;
+  left: DUnion | null;
+  extras: string[];
 }
 
 interface ACouple {
@@ -76,6 +90,7 @@ export class TreeGraph {
   private readonly children = new Map<string, string[]>();
   private readonly spouse = new Map<string, string | null>();
   private readonly spouseRel = new Map<string, SpouseRelation>();
+  private readonly unions = new Map<string, GraphUnion[]>();
   private readonly siblings = new Map<string, string[]>();
   readonly expanded = new Set<string>();
 
@@ -88,23 +103,23 @@ export class TreeGraph {
     });
     if (b.father) this.cards.set(b.father.id, b.father);
     if (b.mother) this.cards.set(b.mother.id, b.mother);
-    if (b.spouse) {
-      this.cards.set(b.spouse.id, b.spouse);
-      this.spouse.set(sid, b.spouse.id);
-      if (b.spouseRelation) {
-        this.spouseRel.set(sid, b.spouseRelation);
-        this.spouseRel.set(b.spouse.id, b.spouseRelation);
-      }
-    } else if (!this.spouse.has(sid)) {
-      this.spouse.set(sid, null);
-    }
-    this.children.set(
-      sid,
-      b.children.map((c) => {
+    // Związki (każdy: małżonek + relacja + dzieci). spouse/children/spouseRel = kompat (1. związek / wszystkie dzieci).
+    const us: GraphUnion[] = (b.unions ?? []).map((u) => {
+      if (u.spouse) this.cards.set(u.spouse.id, u.spouse);
+      const childIds = u.children.map((c) => {
         this.cards.set(c.id, c);
         return c.id;
-      }),
-    );
+      });
+      return { spouseId: u.spouse?.id ?? null, relation: u.relation, childIds };
+    });
+    this.unions.set(sid, us);
+    const firstU = us[0];
+    this.spouse.set(sid, firstU?.spouseId ?? null);
+    if (firstU?.spouseId && firstU.relation) {
+      this.spouseRel.set(sid, firstU.relation);
+      this.spouseRel.set(firstU.spouseId, firstU.relation);
+    }
+    this.children.set(sid, us.flatMap((u) => u.childIds));
     if (b.siblings) {
       this.siblings.set(
         sid,
@@ -158,13 +173,23 @@ export class TreeGraph {
     const dVisited = new Set<string>();
     const buildDesc = (id: string): DNode => {
       dVisited.add(id);
-      const spId = this.spouse.get(id) ?? null;
-      const spouseId = spId && this.cards.has(spId) && !dVisited.has(spId) ? spId : null;
-      if (spouseId) dVisited.add(spouseId);
-      const kids = (this.children.get(id) ?? [])
-        .filter((k) => this.cards.has(k) && !dVisited.has(k))
-        .map((k) => buildDesc(k));
-      return { id, spouseId, kids };
+      const built: DUnion[] = (this.unions.get(id) ?? []).map((u) => {
+        const sp =
+          u.spouseId && this.cards.has(u.spouseId) && !dVisited.has(u.spouseId)
+            ? u.spouseId
+            : null;
+        if (sp) dVisited.add(sp);
+        const kids = u.childIds
+          .filter((k) => this.cards.has(k) && !dVisited.has(k))
+          .map((k) => buildDesc(k));
+        return { spouseId: sp, relation: u.relation, kids };
+      });
+      return {
+        id,
+        right: built[0] ?? null,
+        left: built[1] ?? null,
+        extras: built.slice(2).map((u) => u.spouseId).filter((x): x is string => !!x),
+      };
     };
 
     const frel = this.parents.get(focalId);
@@ -189,39 +214,91 @@ export class TreeGraph {
     }
     const roots = rootIds.filter((r) => !dVisited.has(r)).map((r) => buildDesc(r));
 
+    const sumKids = (kids: DNode[]): number =>
+      kids.length === 0
+        ? 0
+        : kids.reduce((a, k) => a + measureD(k), 0) + H_GAP * (kids.length - 1);
+
+    // Zasięg węzła względem lewej krawędzi karty osoby (=0).
+    // Prawy związek (małżonek + dzieci) rośnie w prawo, lewy w lewo — osoba w środku.
+    const nodeExtents = (n: DNode): { left: number; right: number } => {
+      const pc = CARD_W / 2;
+      let right = CARD_W;
+      let left = 0;
+      if (n.right) {
+        const rkw = sumKids(n.right.kids);
+        if (n.right.spouseId) {
+          const rsLeft = CARD_W + SPOUSE_GAP;
+          right = Math.max(right, rsLeft + CARD_W);
+          const mid = (pc + (rsLeft + CARD_W / 2)) / 2;
+          if (rkw > 0) right = Math.max(right, mid + rkw / 2);
+        } else if (rkw > 0) {
+          right = Math.max(right, pc + rkw / 2);
+        }
+      }
+      if (n.left) {
+        const lkw = sumKids(n.left.kids);
+        if (n.left.spouseId) {
+          const lsLeft = -SPOUSE_GAP - CARD_W;
+          left = Math.min(left, lsLeft);
+          const mid = (pc + (lsLeft + CARD_W / 2)) / 2;
+          if (lkw > 0) left = Math.min(left, mid - lkw / 2);
+        } else if (lkw > 0) {
+          left = Math.min(left, pc - lkw / 2);
+        }
+      }
+      if (n.extras.length) right += n.extras.length * (CARD_W + SPOUSE_GAP);
+      return { left, right };
+    };
+
     const measureD = (n: DNode): number => {
-      const coupleW = this.coupleWidth(!!n.spouseId);
-      if (n.kids.length === 0) return coupleW;
-      const childrenW =
-        n.kids.reduce((a, k) => a + measureD(k), 0) + H_GAP * (n.kids.length - 1);
-      return Math.max(coupleW, childrenW);
+      const e = nodeExtents(n);
+      return e.right - e.left;
+    };
+
+    const placeKids = (kids: DNode[], centerX: number, depth: number) => {
+      const total = sumKids(kids);
+      let cl = centerX - total / 2;
+      for (const kid of kids) {
+        placeD(kid, cl, depth);
+        cl += measureD(kid) + H_GAP;
+      }
     };
 
     const placeD = (n: DNode, blockLeft: number, depth: number): number => {
-      const w = measureD(n);
-      const coupleW = this.coupleWidth(!!n.spouseId);
-      const centerX = blockLeft + w / 2;
-      if (n.kids.length > 0) {
-        const childrenW =
-          n.kids.reduce((a, k) => a + measureD(k), 0) + H_GAP * (n.kids.length - 1);
-        let cl = centerX - childrenW / 2;
-        for (const kid of n.kids) {
-          placeD(kid, cl, depth + 1);
-          cl += measureD(kid) + H_GAP;
-        }
-      }
-      const personX = centerX - coupleW / 2;
+      const e = nodeExtents(n);
+      const personX = blockLeft - e.left;
+      const pcX = personX + CARD_W / 2;
+      const y = depth * DY;
       const role: NodeRole = n.id === focalId ? 'focal' : depth === 0 ? 'ancestor' : 'descendant';
-      pos.set(n.id, { card: this.cards.get(n.id)!, x: personX, y: depth * DY, role });
-      if (n.spouseId) {
-        pos.set(n.spouseId, {
-          card: this.cards.get(n.spouseId)!,
-          x: personX + CARD_W + SPOUSE_GAP,
-          y: depth * DY,
-          role: 'spouse',
-        });
+      pos.set(n.id, { card: this.cards.get(n.id)!, x: personX, y, role });
+
+      let rightmost = personX + CARD_W;
+      if (n.right) {
+        let center = pcX;
+        if (n.right.spouseId) {
+          const rsX = personX + CARD_W + SPOUSE_GAP;
+          pos.set(n.right.spouseId, { card: this.cards.get(n.right.spouseId)!, x: rsX, y, role: 'spouse' });
+          rightmost = rsX + CARD_W;
+          center = (pcX + rsX + CARD_W / 2) / 2;
+        }
+        placeKids(n.right.kids, center, depth + 1);
       }
-      return centerX;
+      if (n.left) {
+        let center = pcX;
+        if (n.left.spouseId) {
+          const lsX = personX - SPOUSE_GAP - CARD_W;
+          pos.set(n.left.spouseId, { card: this.cards.get(n.left.spouseId)!, x: lsX, y, role: 'spouse' });
+          center = (pcX + lsX + CARD_W / 2) / 2;
+        }
+        placeKids(n.left.kids, center, depth + 1);
+      }
+      for (const exId of n.extras) {
+        const exX = rightmost + SPOUSE_GAP;
+        pos.set(exId, { card: this.cards.get(exId)!, x: exX, y, role: 'spouse' });
+        rightmost = exX + CARD_W;
+      }
+      return pcX;
     };
 
     let forestLeft = 0;
@@ -336,26 +413,27 @@ export class TreeGraph {
       links.push({ x1: cx(c), y1: c.y, x2, y2, kind: 'parent' });
     }
 
-    // Linie par — ciągłe, kolor wg typu związku.
+    // Linie par — ciągłe, kolor wg typu związku. Po jednej dla KAŻDEGO związku osoby.
     const spouseSeen = new Set<string>();
     for (const [id] of pos) {
-      const sp = this.spouse.get(id);
-      if (!sp || !pos.has(sp)) continue;
-      const key = [id, sp].sort().join('|');
-      if (spouseSeen.has(key)) continue;
-      spouseSeen.add(key);
-      const a = pos.get(id)!;
-      const b = pos.get(sp)!;
-      const left = a.x <= b.x ? a : b;
-      const right = a.x <= b.x ? b : a;
-      links.push({
-        x1: left.x + CARD_W,
-        y1: left.y + CARD_H / 2,
-        x2: right.x,
-        y2: right.y + CARD_H / 2,
-        kind: 'spouse',
-        relation: this.spouseRel.get(id) ?? this.spouseRel.get(sp) ?? 'married',
-      });
+      for (const u of this.unions.get(id) ?? []) {
+        if (!u.spouseId || !pos.has(u.spouseId) || !pos.has(id)) continue;
+        const key = [id, u.spouseId].sort().join('|');
+        if (spouseSeen.has(key)) continue;
+        spouseSeen.add(key);
+        const a = pos.get(id)!;
+        const b = pos.get(u.spouseId)!;
+        const left = a.x <= b.x ? a : b;
+        const right = a.x <= b.x ? b : a;
+        links.push({
+          x1: left.x + CARD_W,
+          y1: left.y + CARD_H / 2,
+          x2: right.x,
+          y2: right.y + CARD_H / 2,
+          kind: 'spouse',
+          relation: u.relation ?? 'married',
+        });
+      }
     }
 
     /* ------------------------- placeholdery „+ Ojciec/Matka" ------------------------- */

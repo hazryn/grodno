@@ -67,10 +67,21 @@ function centerOnFocal() {
   ty.value = vp.clientHeight / 2 - (node.y + CARD_H / 2);
 }
 
-// Centrujemy tylko przy ZMIANIE focal-a (nawigacja), NIE przy każdym rozwinięciu
-// gałęzi — inaczej +/− resetowałyby zoom i pan użytkownika.
-watch(() => props.focalId, () => nextTick(centerOnFocal));
-onMounted(() => nextTick(centerOnFocal));
+// Centrujemy tylko przy ZMIANIE focal-a (nawigacja) — i dopiero gdy nowy layout
+// faktycznie zawiera focal (po dociągnięciu payloadu). NIE przy rozwijaniu gałęzi.
+let lastCentered = '';
+watch(
+  [() => props.focalId, () => props.layout],
+  () => {
+    if (props.focalId && props.focalId !== lastCentered) {
+      if (props.layout.nodes.some((n) => n.card.id === props.focalId)) {
+        lastCentered = props.focalId;
+        nextTick(centerOnFocal);
+      }
+    }
+  },
+  { immediate: true },
+);
 defineExpose({ centerOnFocal });
 
 function elbow(l: { x1: number; y1: number; x2: number; y2: number }): string {

@@ -10,6 +10,7 @@ import type {
   PersonCard,
   PlaceDto,
   SpouseRelation,
+  Union,
 } from '@rodno/shared';
 import {
   Event,
@@ -108,44 +109,41 @@ export class IndividualsService {
       }
     }
 
-    let spouse: Individual | null = null;
-    let childEnts: Individual[] = [];
+    // WSZYSTKIE związki osoby (mąż/żona, potem partner itd.), każdy ze swoimi dziećmi.
     const spouseFams = await this.famRepo.find({
       where: [{ husbandId: indi.id }, { wifeId: indi.id }],
       order: { createdAt: 'ASC' },
     });
-    const firstFam = spouseFams[0];
-    if (firstFam) {
-      // Małżonek = z pierwszej unii (bundle.spouse jest pojedynczy).
-      const spouseId =
-        firstFam.husbandId === indi.id ? firstFam.wifeId : firstFam.husbandId;
-      spouse = await this.loadIndi(spouseId);
-
-      // Dzieci ze WSZYSTKICH związków — żeby zgadzało się z childCount (kontrakt:
-      // "po wszystkich związkach") i żeby getPayload nie gubił gałęzi z kolejnych małżeństw.
-      const famOrder = new Map(spouseFams.map((f, i) => [f.id, i]));
+    const unions: Union[] = [];
+    const childEnts: Individual[] = []; // wszystkie dzieci (do trawersacji payloadu)
+    const seenChild = new Set<string>();
+    let spouse: Individual | null = null;
+    for (let i = 0; i < spouseFams.length; i++) {
+      const fam = spouseFams[i]!;
+      const spId = fam.husbandId === indi.id ? fam.wifeId : fam.husbandId;
+      const sp = await this.loadIndi(spId);
+      if (i === 0) spouse = sp;
       const childFcs = await this.fcRepo.find({
-        where: { familyId: In(spouseFams.map((f) => f.id)) },
+        where: { familyId: fam.id },
+        order: { sortOrder: 'ASC' },
       });
-      childFcs.sort(
-        (a, b) =>
-          (famOrder.get(a.familyId)! - famOrder.get(b.familyId)!) ||
-          a.sortOrder - b.sortOrder,
-      );
-      const seen = new Set<string>();
-      const orderedChildIds = childFcs
-        .map((c) => c.childId)
-        .filter((id) => (seen.has(id) ? false : (seen.add(id), true)));
-      childEnts = await this.loadOrdered(orderedChildIds);
-    }
-
-    let spouseRelation: SpouseRelation | null = null;
-    if (spouse && firstFam) {
+      const unionChildren = await this.loadOrdered(childFcs.map((c) => c.childId));
+      for (const c of unionChildren) {
+        if (!seenChild.has(c.id)) {
+          seenChild.add(c.id);
+          childEnts.push(c);
+        }
+      }
       const marr = await this.eventRepo.findOne({
-        where: { familyId: firstFam.id, type: 'MARR' },
+        where: { familyId: fam.id, type: 'MARR' },
       });
-      spouseRelation = marr ? 'married' : 'partner';
+      unions.push({
+        spouse: sp ? this.toCard(sp) : null,
+        relation: sp ? (marr ? 'married' : 'partner') : null,
+        children: unionChildren.map((c) => this.toCard(c)),
+      });
     }
+    const spouseRelation: SpouseRelation | null = unions[0]?.relation ?? null;
 
     const bundle: Bundle = {
       self: this.toCard(indi),
@@ -153,7 +151,8 @@ export class IndividualsService {
       mother: mother ? this.toCard(mother) : null,
       spouse: spouse ? this.toCard(spouse) : null,
       spouseRelation,
-      children: childEnts.map((c) => this.toCard(c)),
+      children: unions[0]?.children ?? [],
+      unions,
     };
     if (withSiblings) {
       bundle.siblings = siblingEnts.map((s) => this.toCard(s));

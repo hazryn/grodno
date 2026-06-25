@@ -1,21 +1,27 @@
 <script setup lang="ts">
 const props = defineProps<{
-  open: { id: string; name: string; x: number; y: number } | null;
+  open: { id: string; name: string; x: number; y: number; hasFather: boolean; hasMother: boolean } | null;
 }>();
 const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'pick', label: string): void;
 }>();
 
-const options = [
-  { label: 'Dodaj ojca', tone: 'bg-sky-100 text-sky-600' },
-  { label: 'Dodaj matkę', tone: 'bg-pink-100 text-pink-600' },
+type Opt = { label: string; tone: string; slot?: 'father' | 'mother' };
+const options: Opt[] = [
+  { label: 'Dodaj ojca', tone: 'bg-sky-100 text-sky-600', slot: 'father' },
+  { label: 'Dodaj matkę', tone: 'bg-pink-100 text-pink-600', slot: 'mother' },
   { label: 'Dodaj brata', tone: 'bg-sky-100 text-sky-600' },
   { label: 'Dodaj siostrę', tone: 'bg-pink-100 text-pink-600' },
   { label: 'Dodaj partnera / partnerkę', tone: 'bg-slate-100 text-slate-500' },
   { label: 'Dodaj syna', tone: 'bg-sky-100 text-sky-600' },
   { label: 'Dodaj córkę', tone: 'bg-pink-100 text-pink-600' },
 ];
+
+// Wyszarz „Dodaj ojca/matkę", gdy osoba już ma ojca/matkę.
+const isDisabled = (o: Opt): boolean =>
+  (o.slot === 'father' && !!props.open?.hasFather) ||
+  (o.slot === 'mother' && !!props.open?.hasMother);
 
 const W = 256;
 const H = 360;
@@ -48,9 +54,13 @@ const popStyle = computed(() => {
           <button
             v-for="(o, i) in options"
             :key="o.label"
-            class="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-slate-50"
-            :class="{ 'mt-1 border-t border-slate-100 pt-2': i === 5 }"
-            @click="emit('pick', o.label)"
+            :disabled="isDisabled(o)"
+            class="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition"
+            :class="[
+              { 'mt-1 border-t border-slate-100 pt-2': i === 5 },
+              isDisabled(o) ? 'cursor-not-allowed opacity-40' : 'hover:bg-slate-50',
+            ]"
+            @click="!isDisabled(o) && emit('pick', o.label)"
           >
             <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" :class="o.tone">
               <svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4">
@@ -58,6 +68,7 @@ const popStyle = computed(() => {
               </svg>
             </span>
             <span class="text-sm text-slate-700">{{ o.label }}</span>
+            <span v-if="isDisabled(o)" class="ml-auto text-[10px] text-slate-400">już jest</span>
           </button>
         </div>
       </Transition>

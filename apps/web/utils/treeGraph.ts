@@ -140,6 +140,13 @@ export class TreeGraph {
     return this.cards.has(id);
   }
 
+  /** Czy znamy rodziców osoby (bundle wczytany) i czy ma ojca/matkę — do menu „dodaj". */
+  parentInfo(id: string): { known: boolean; hasFather: boolean; hasMother: boolean } {
+    const rel = this.parents.get(id);
+    if (!rel) return { known: false, hasFather: false, hasMother: false };
+    return { known: true, hasFather: !!rel.fatherId, hasMother: !!rel.motherId };
+  }
+
   canExpandUp(id: string): boolean {
     const card = this.cards.get(id);
     if (!card?.hasParents) return false;
@@ -227,24 +234,29 @@ export class TreeGraph {
       let left = 0;
       if (n.right) {
         const rkw = sumKids(n.right.kids);
+        let center = pc;
         if (n.right.spouseId) {
           const rsLeft = CARD_W + SPOUSE_GAP;
           right = Math.max(right, rsLeft + CARD_W);
-          const mid = (pc + (rsLeft + CARD_W / 2)) / 2;
-          if (rkw > 0) right = Math.max(right, mid + rkw / 2);
-        } else if (rkw > 0) {
-          right = Math.max(right, pc + rkw / 2);
+          center = (pc + rsLeft + CARD_W / 2) / 2;
+        }
+        if (rkw > 0) {
+          // dzieci wyśrodkowane pod parą — mogą wychodzić w OBIE strony
+          right = Math.max(right, center + rkw / 2);
+          left = Math.min(left, center - rkw / 2);
         }
       }
       if (n.left) {
         const lkw = sumKids(n.left.kids);
+        let center = pc;
         if (n.left.spouseId) {
           const lsLeft = -SPOUSE_GAP - CARD_W;
           left = Math.min(left, lsLeft);
-          const mid = (pc + (lsLeft + CARD_W / 2)) / 2;
-          if (lkw > 0) left = Math.min(left, mid - lkw / 2);
-        } else if (lkw > 0) {
-          left = Math.min(left, pc - lkw / 2);
+          center = (pc + lsLeft + CARD_W / 2) / 2;
+        }
+        if (lkw > 0) {
+          left = Math.min(left, center - lkw / 2);
+          right = Math.max(right, center + lkw / 2);
         }
       }
       if (n.extras.length) right += n.extras.length * (CARD_W + SPOUSE_GAP);

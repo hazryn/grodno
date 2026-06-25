@@ -15,6 +15,8 @@ function relayout() {
   if (focalId.value) layout.value = graph.layout(focalId.value);
 }
 
+const treeRef = ref<{ centerOnFocal: () => void } | null>(null);
+
 async function focusOn(id: string, deep = false) {
   focalId.value = id;
   if (deep || !graph.expanded.has(id)) {
@@ -22,6 +24,9 @@ async function focusOn(id: string, deep = false) {
     graph.ingestPayload(payload);
   }
   relayout();
+  // Centruj na osobie DOPIERO po przebudowie layoutu (na nowej pozycji focal-a).
+  await nextTick();
+  treeRef.value?.centerOnFocal();
 }
 
 async function expandUp(id: string) {
@@ -65,7 +70,24 @@ function onAddParent({ slot, forId }: { forId: string; slot: 'father' | 'mother'
   showToast(`Dodawanie ${slot === 'father' ? 'ojca' : 'matki'} dla „${who}" — edycja w fazie 2.`);
 }
 
-const addMenu = ref<{ id: string; name: string; x: number; y: number } | null>(null);
+const addMenu = ref<
+  { id: string; name: string; x: number; y: number; hasFather: boolean; hasMother: boolean } | null
+>(null);
+
+async function openAddMenu(p: { id: string; name: string; x: number; y: number }) {
+  // Upewnij się, że znamy rodziców (dociągnij bundle, jeśli to karta bez własnego bundla).
+  let info = graph.parentInfo(p.id);
+  if (!info.known) {
+    try {
+      graph.ingestBundle(await api.bundle(p.id));
+      info = graph.parentInfo(p.id);
+    } catch {
+      /* ignoruj — pokaż menu bez wyszarzeń */
+    }
+  }
+  addMenu.value = { ...p, hasFather: info.hasFather, hasMother: info.hasMother };
+}
+
 function onAddRelative(label: string) {
   const who = addMenu.value?.name ?? 'osoby';
   addMenu.value = null;
@@ -135,6 +157,7 @@ function onRecenter(id: string) {
       </div>
       <TreeCanvas
         v-else
+        ref="treeRef"
         :layout="layout"
         :focal-id="focalId"
         :can-expand-up="canExpandUp"
@@ -144,7 +167,7 @@ function onRecenter(id: string) {
         @expand-up="expandUp"
         @expand-down="expandDown"
         @add-parent="onAddParent"
-        @add-relative="(p) => (addMenu = p)"
+        @add-relative="openAddMenu"
       />
 
       <!-- legenda -->

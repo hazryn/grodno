@@ -67,21 +67,9 @@ function centerOnFocal() {
   ty.value = vp.clientHeight / 2 - (node.y + CARD_H / 2);
 }
 
-// Centrujemy tylko przy ZMIANIE focal-a (nawigacja) — i dopiero gdy nowy layout
-// faktycznie zawiera focal (po dociągnięciu payloadu). NIE przy rozwijaniu gałęzi.
-let lastCentered = '';
-watch(
-  [() => props.focalId, () => props.layout],
-  () => {
-    if (props.focalId && props.focalId !== lastCentered) {
-      if (props.layout.nodes.some((n) => n.card.id === props.focalId)) {
-        lastCentered = props.focalId;
-        nextTick(centerOnFocal);
-      }
-    }
-  },
-  { immediate: true },
-);
+// Pierwsze wyśrodkowanie po zamontowaniu. Kolejne (nawigacja) woła rodzic jawnie
+// przez centerOnFocal() PO przebudowie layoutu — inaczej centrowałoby na starej pozycji.
+onMounted(() => nextTick(centerOnFocal));
 defineExpose({ centerOnFocal });
 
 function elbow(l: { x1: number; y1: number; x2: number; y2: number }): string {
@@ -171,13 +159,20 @@ function roleRing(node: PositionedNode): string {
         class="group absolute"
         :style="{ left: node.x + 'px', top: node.y + 'px', width: CARD_W + 'px', height: CARD_H + 'px' }"
       >
-        <!-- rozwiń w górę -->
+        <!-- widżet rodziców (jak w MyHeritage) → klik centruje na osobie -->
         <button
-          v-if="canExpandUp(node.card.id)"
-          class="absolute -top-3 left-1/2 z-10 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-500 shadow hover:bg-slate-100"
-          title="Pokaż rodziców"
-          @click.stop="emit('expand-up', node.card.id)"
-        >▲</button>
+          v-if="node.role !== 'focal' && node.card.hasParents"
+          class="absolute -top-[19px] right-3 z-10 flex flex-col items-center"
+          title="Centruj na tej osobie"
+          @click.stop="emit('recenter', node.card.id)"
+        >
+          <span class="flex items-center">
+            <span class="h-[9px] w-4 rounded-full bg-sky-300 ring-1 ring-white transition group-hover:bg-sky-400"></span>
+            <span class="h-px w-2 bg-slate-300"></span>
+            <span class="h-[9px] w-4 rounded-full bg-pink-300 ring-1 ring-white transition group-hover:bg-pink-400"></span>
+          </span>
+          <span class="h-[7px] w-px bg-slate-300"></span>
+        </button>
 
         <div
           class="group relative flex h-full cursor-pointer items-center gap-2 overflow-hidden rounded-xl border px-2.5 py-1.5 transition hover:shadow-md"

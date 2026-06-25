@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/.output
+**/.nuxt
+**/.turbo
+.git
+data
+*.ged
+**/.env
+**/.env.*
+!**/.env.example
+*.log
+**/coverage

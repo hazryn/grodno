@@ -1,0 +1,111 @@
+# Rodno — cały lokalny stack jednym poleceniem:  docker compose up
+# Porty 52+ (bez konfliktów): web 5200, API 5201, Postgres 5202.
+# (Sam Postgres do pracy z `pnpm dev`:  docker compose up -d postgres)
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rodno-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rodno
+      POSTGRES_PASSWORD: rodno
+      POSTGRES_DB: rodno
+    ports:
+      - "5202:5432"
+    volumes:
+      - rodno-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rodno -d rodno"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      network: host
+    container_name: rodno-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: "5201"
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: rodno
+      DB_PASSWORD: rodno
+      DB_NAME: rodno
+      DB_RUN_MIGRATIONS: "true"
+      JWT_SECRET: dev-secret-change-me
+      JWT_EXPIRES_IN: 7d
+      SEED_ADMIN_EMAIL: admin@rodno.local
+      SEED_ADMIN_PASSWORD: admin123
+      WEB_ORIGIN: http://localhost:5200
+      # Auto-import drzewa, jeśli plik jest zamontowany (idempotentny).
+      AUTO_IMPORT: "true"
+      TREE_NAME: szejna
+      GEDCOM_PATH: /data/szejna.ged
+      # Publiczny bazowy URL mediów (widziany z przeglądarki) → MinIO.
+      MEDIA_PUBLIC_BASE: http://localhost:5203/rodno-media
+    volumes:
+      - ./data:/data:ro
+    ports:
+      - "5201:5201"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      network: host
+    container_name: rodno-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      HOST: 0.0.0.0
+      PORT: "5200"
+      # Adres API widziany z PRZEGLĄDARKI (fetch jest po stronie klienta) → localhost:5201.
+      NUXT_PUBLIC_API_BASE: http://localhost:5201/api
+    ports:
+      - "5200:5200"
+
+  # MinIO — storage S3-compatible na media (spec §9). Bucket publiczny do odczytu,
+  # żeby przeglądarka mogła pobrać zdjęcia bez podpisów.
+  minio:
+    image: minio/minio:latest
+    container_name: rodno-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: rodno
+      MINIO_ROOT_PASSWORD: rodno12345
+    ports:
+      # host 5203/5204 (porty 52+) → kontener 9000 (S3 API) / 9001 (konsola)
+      - "5203:9000"
+      - "5204:9001"
+    volumes:
+      - rodno-minio:/data
+
+  # Jednorazowy upload mediów z ./data/media do bucketu (idempotentny mirror).
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    volumes:
+      - ./data/media:/media:ro
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 rodno rodno12345; do echo 'czekam na minio...'; sleep 2; done;
+      mc mb -p local/rodno-media || true;
+      mc anonymous set download local/rodno-media || true;
+      mc mirror --overwrite --quiet /media local/rodno-media;
+      echo 'media wgrane do MinIO';
+      "
+    restart: "no"
+
+volumes:
+  rodno-pgdata:
+  rodno-minio:

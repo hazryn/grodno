@@ -1,0 +1,27 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# build
+dist/
+.output/
+.nuxt/
+.turbo/
+*.tsbuildinfo
+
+# env
+.env
+.env.*
+!.env.example
+
+# data — REAL family data (living people). Never commit / never push.
+data/
+*.ged
+!apps/api/test/fixtures/*.ged
+
+# misc
+.DS_Store
+*.log
+coverage/
+.idea/
+.vscode/

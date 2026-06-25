@@ -65,6 +65,13 @@ function onAddParent({ slot, forId }: { forId: string; slot: 'father' | 'mother'
   showToast(`Dodawanie ${slot === 'father' ? 'ojca' : 'matki'} dla „${who}" — edycja w fazie 2.`);
 }
 
+const addMenu = ref<{ id: string; name: string; x: number; y: number } | null>(null);
+function onAddRelative(label: string) {
+  const who = addMenu.value?.name ?? 'osoby';
+  addMenu.value = null;
+  showToast(`${label} (dla „${who}") — edycja w fazie 2.`);
+}
+
 onMounted(async () => {
   try {
     tree.value = await api.tree('szejna');
@@ -137,6 +144,7 @@ function onRecenter(id: string) {
         @expand-up="expandUp"
         @expand-down="expandDown"
         @add-parent="onAddParent"
+        @add-relative="(p) => (addMenu = p)"
       />
 
       <!-- legenda -->
@@ -163,6 +171,8 @@ function onRecenter(id: string) {
       @close="modalId = null"
       @recenter="onRecenter"
     />
+
+    <AddRelativeMenu :open="addMenu" @close="addMenu = null" @pick="onAddRelative" />
 
     <!-- toast aplikacyjny (zamiast natywnego dialogu) -->
     <div

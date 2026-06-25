@@ -15,6 +15,7 @@ const emit = defineEmits<{
   (e: 'expand-up', id: string): void;
   (e: 'expand-down', id: string): void;
   (e: 'add-parent', payload: { forId: string; slot: 'father' | 'mother' }): void;
+  (e: 'add-relative', payload: { id: string; name: string; x: number; y: number }): void;
 }>();
 
 const viewport = ref<HTMLElement | null>(null);
@@ -73,8 +74,23 @@ onMounted(() => nextTick(centerOnFocal));
 defineExpose({ centerOnFocal });
 
 function elbow(l: { x1: number; y1: number; x2: number; y2: number }): string {
-  const my = (l.y1 + l.y2) / 2;
-  return `M ${l.x1} ${l.y1} L ${l.x1} ${my} L ${l.x2} ${my} L ${l.x2} ${l.y2}`;
+  const { x1, y1, x2, y2 } = l;
+  const my = (y1 + y2) / 2;
+  const dx = x2 - x1;
+  if (Math.abs(dx) < 1) return `M ${x1} ${y1} L ${x2} ${y2}`; // prosto w pionie
+  const dir = dx > 0 ? 1 : -1;
+  // zaokrąglone rogi (łagodny łuk zamiast kąta 90°)
+  const r = Math.min(14, Math.abs(dx) / 2, Math.abs(my - y1), Math.abs(y2 - my));
+  const s1 = Math.sign(y1 - my);
+  const s2 = Math.sign(y2 - my);
+  return [
+    `M ${x1} ${y1}`,
+    `L ${x1} ${my + r * s1}`,
+    `Q ${x1} ${my} ${x1 + dir * r} ${my}`,
+    `L ${x2 - dir * r} ${my}`,
+    `Q ${x2} ${my} ${x2} ${my + r * s2}`,
+    `L ${x2} ${y2}`,
+  ].join(' ');
 }
 
 function initials(card: PersonCard): string {
@@ -141,7 +157,7 @@ function roleRing(node: PositionedNode): string {
         v-for="node in layout.nodes"
         :key="node.card.id"
         data-card
-        class="absolute"
+        class="group absolute"
         :style="{ left: node.x + 'px', top: node.y + 'px', width: CARD_W + 'px', height: CARD_H + 'px' }"
       >
         <!-- rozwiń w górę -->
@@ -153,14 +169,23 @@ function roleRing(node: PositionedNode): string {
         >▲</button>
 
         <div
-          class="group flex h-full cursor-pointer items-center gap-2 rounded-xl border px-2.5 py-1.5 transition hover:shadow-md"
+          class="group relative flex h-full cursor-pointer items-center gap-2 overflow-hidden rounded-xl border px-2.5 py-1.5 transition hover:shadow-md"
           :class="[sexClasses(node.card), roleRing(node)]"
           @click="emit('select', node.card.id)"
           @dblclick="emit('recenter', node.card.id)"
           :title="node.card.birthplaceFull || ''"
         >
+          <!-- wstążka żałobna (osoba zmarła) — narożny baner w lewym górnym rogu -->
           <div
-            class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-semibold"
+            v-if="node.card.deceased"
+            class="pointer-events-none absolute left-0 top-0 z-10 h-9 w-9 overflow-hidden rounded-tl-xl"
+            title="Osoba zmarła"
+            aria-label="Osoba zmarła"
+          >
+            <div class="absolute -left-3 top-[7px] w-[52px] -rotate-45 bg-gradient-to-br from-slate-700 to-slate-900 py-[3px] shadow-sm"></div>
+          </div>
+          <div
+            class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full text-base font-semibold"
             :class="avatarClasses(node.card)"
           >
             <img
@@ -185,13 +210,20 @@ function roleRing(node: PositionedNode): string {
           </div>
         </div>
 
-        <!-- rozwiń w dół -->
-        <button
-          v-if="canExpandDown(node.card.id)"
-          class="absolute -bottom-3 left-1/2 z-10 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-500 shadow hover:bg-slate-100"
-          title="Pokaż dzieci"
-          @click.stop="emit('expand-down', node.card.id)"
-        >▼</button>
+        <!-- dół: rozwiń dzieci (gdy są ukryte) + „dodaj krewnego" (na hover) -->
+        <div class="absolute -bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1">
+          <button
+            v-if="node.role !== 'spouse' && canExpandDown(node.card.id)"
+            class="flex h-6 w-6 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-500 shadow hover:bg-slate-100"
+            title="Pokaż dzieci"
+            @click.stop="emit('expand-down', node.card.id)"
+          >▼</button>
+          <button
+            class="hidden h-6 w-6 items-center justify-center rounded-full border border-amber-300 bg-white text-base leading-none text-amber-600 shadow hover:bg-amber-50 group-hover:flex"
+            title="Dodaj krewnego"
+            @click.stop="emit('add-relative', { id: node.card.id, name: node.card.name, x: $event.clientX, y: $event.clientY })"
+          >+</button>
+        </div>
       </div>
 
       <!-- placeholdery „+ Ojciec / + Matka" (osoby bez rodziców w drzewie, jak MyHeritage) -->

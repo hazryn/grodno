@@ -15,8 +15,8 @@ import type { Bundle, BundlePayload, PersonCard, SpouseRelation } from '@rodno/s
 
 export const CARD_W = 210;
 export const CARD_H = 92;
-const SPOUSE_GAP = 14;
 const H_GAP = 30;
+const SPOUSE_GAP = H_GAP; // odstęp w parze = odstęp między rodzeństwem
 const V_GAP = 76;
 const DY = CARD_H + V_GAP;
 const MARGIN = 56;
@@ -365,7 +365,8 @@ export class TreeGraph {
     const PH_H = 44;
     const PH_DY = 64;
     for (const [id, node] of pos) {
-      // Każda osoba bez rodziców w drzewie — też wżenieni małżonkowie (jak MyHeritage).
+      // Tylko linia krwi — bez wżenionych małżonków (ich drzewo i tak ukryte).
+      if (node.role === 'spouse') continue;
       if (node.card.hasParents) continue;
       const y = node.y - PH_DY;
       placeholders.push(

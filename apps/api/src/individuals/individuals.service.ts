@@ -46,6 +46,7 @@ export class IndividualsService {
       birthplace: indi.birthPlaceTown,
       birthplaceFull: indi.birthPlaceFull,
       photoUrl: indi.photoUrl,
+      linkedinUrl: indi.linkedinUrl,
       deceased: indi.deceased,
       hasParents: indi.hasParents,
       childCount: indi.childCount,
@@ -298,6 +299,10 @@ export class IndividualsService {
       events: eventDtos,
       media,
       photoUrl: indi.photoUrl,
+      linkedinUrl: indi.linkedinUrl,
+      xUrl: indi.xUrl,
+      emails: indi.emails ?? [],
+      experience: indi.experience ?? [],
     };
   }
 

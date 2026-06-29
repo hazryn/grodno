@@ -10,6 +10,7 @@ import {
   normalizeSex,
   type GedcomDateValue,
   type PersonName,
+  type WorkExperience,
 } from '@rodno/shared';
 import {
   Event,
@@ -45,6 +46,8 @@ export interface ImportStats {
 const NON_EVENT_INDI = new Set([
   'NAME', 'SEX', 'FAMC', 'FAMS', 'OBJE', 'NOTE', 'SOUR', 'RIN', 'RFN', 'AFN',
   'REFN', 'CHAN', 'SUBM', 'ANCI', 'DESI', 'ASSO', 'ALIA',
+  // Obsłużone osobno: kontakt/social + doświadczenie (sekcja „Praca", nie oś czasu).
+  'EMAIL', 'EMAI', 'OCCU',
 ]);
 
 /** Tagi pod FAM, które NIE są zdarzeniami rodziny. */
@@ -229,6 +232,12 @@ export class GedcomImportService {
     indi.hasParents = false;
     indi.childCount = 0;
 
+    // Kontakt / social + doświadczenie zawodowe (styl LinkedIn).
+    indi.emails = this.collectEmails(rec);
+    indi.linkedinUrl = childValue(rec, '_LINKEDIN') ?? childValue(rec, '_LNKD') ?? null;
+    indi.xUrl = childValue(rec, '_X') ?? childValue(rec, '_TWITTER') ?? null;
+    indi.experience = this.buildExperience(rec);
+
     // FAMC — zapamiętaj pierwszą rodzinę rodzicielską.
     const famc = childrenWithTag(rec, 'FAMC')
       .map((n) => asPointer(n.value))
@@ -383,6 +392,61 @@ export class GedcomImportService {
     const base = process.env.MEDIA_PUBLIC_BASE ?? 'http://localhost:5203/rodno-media';
     const key = filename.split('/').pop() ?? filename;
     return `${base}/${encodeURIComponent(key)}`;
+  }
+
+  /**
+   * Wszystkie e-maile osoby (bez duplikatów). Skanuje całe poddrzewo INDI, bo
+   * webtrees zagnieżdża EMAIL pod RESI (`1 RESI` › `2 EMAIL ...`), nie tylko wprost pod INDI.
+   */
+  private collectEmails(rec: GedcomNode): string[] {
+    const out: string[] = [];
+    const isEmail = (t: string) => t === 'EMAIL' || t === '_EMAIL' || t === 'EMAI';
+    const walk = (node: GedcomNode): void => {
+      for (const c of node.children) {
+        if (isEmail(c.tag)) {
+          const v = c.value?.trim();
+          if (v && !out.includes(v)) out.push(v);
+        }
+        if (c.children.length) walk(c);
+      }
+    };
+    walk(rec);
+    return out;
+  }
+
+  /** Doświadczenie zawodowe ze zdarzeń OCCU (stanowisko + firma AGNC + okres + logo z _DOMAIN). */
+  private buildExperience(rec: GedcomNode): WorkExperience[] {
+    return childrenWithTag(rec, 'OCCU').map((occu) => {
+      const title = occu.value?.trim() || 'Praca';
+      const company = childValue(occu, 'AGNC') ?? childValue(occu, 'CORP') ?? null;
+      const { from, to } = this.parsePeriod(childValue(occu, 'DATE'));
+      const domain = childValue(occu, '_DOMAIN') ?? childValue(occu, '_LOGO') ?? null;
+      const logoUrl = domain
+        ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain.trim())}&sz=64`
+        : null;
+      return { title, company, from, to, logoUrl };
+    });
+  }
+
+  /** Rozbija GEDCOM DATE okresu na rok-od / rok-do (null „do” = trwa obecnie). */
+  private parsePeriod(raw: string | null | undefined): { from: string | null; to: string | null } {
+    if (!raw) return { from: null, to: null };
+    const s = raw.trim();
+    let m = /^FROM\s+(.+?)\s+TO\s+(.+)$/i.exec(s);
+    if (m) return { from: this.yearOf(m[1]), to: this.yearOf(m[2]) };
+    m = /^FROM\s+(.+)$/i.exec(s);
+    if (m) return { from: this.yearOf(m[1]), to: null };
+    m = /^TO\s+(.+)$/i.exec(s);
+    if (m) return { from: null, to: this.yearOf(m[1]) };
+    m = /^(?:BET\s+)?(.+?)\s+AND\s+(.+)$/i.exec(s);
+    if (m) return { from: this.yearOf(m[1]), to: this.yearOf(m[2]) };
+    const y = this.yearOf(s);
+    return { from: y, to: y };
+  }
+
+  private yearOf(s: string): string {
+    const y = gedcomDateYear(parseGedcomDate(s.trim()));
+    return y != null ? String(y) : s.trim();
   }
 
   private guessDeceased(birthYear: number | null | undefined, hasDeathTag: boolean): boolean {

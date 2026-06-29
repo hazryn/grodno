@@ -19,6 +19,7 @@ export type {
   EventDto,
   MediaDto,
   SourceDto,
+  WorkExperience,
   IndividualDto,
   FamilyDto,
 } from './domain.js';

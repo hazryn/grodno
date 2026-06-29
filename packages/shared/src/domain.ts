@@ -59,6 +59,20 @@ export interface SourceDto {
   author: string | null;
 }
 
+/** Jedno doświadczenie zawodowe (styl LinkedIn). Źródło: zdarzenia OCCU z GEDCOM. */
+export interface WorkExperience {
+  /** Stanowisko (wartość OCCU). */
+  title: string;
+  /** Firma/pracodawca (OCCU › AGNC) lub null. */
+  company: string | null;
+  /** Rok/okres rozpoczęcia (string — bywa częściowy) lub null. */
+  from: string | null;
+  /** Rok zakończenia; null = obecnie. */
+  to: string | null;
+  /** URL logo firmy (favicon po domenie, OCCU › _DOMAIN) lub null. */
+  logoUrl: string | null;
+}
+
 export interface IndividualDto {
   id: string;
   treeId: string;
@@ -74,6 +88,12 @@ export interface IndividualDto {
   events: EventDto[];
   media: MediaDto[];
   photoUrl: string | null;
+  /** Kontakt / social. E-maili może być wiele. */
+  linkedinUrl: string | null;
+  xUrl: string | null;
+  emails: string[];
+  /** Doświadczenie zawodowe (styl LinkedIn). */
+  experience: WorkExperience[];
 }
 
 export interface FamilyDto {

@@ -190,18 +190,33 @@ function roleRing(node: PositionedNode): string {
           >
             <div class="absolute -left-3 top-[7px] w-[52px] -rotate-45 bg-gradient-to-br from-slate-700 to-slate-900 py-[3px] shadow-sm"></div>
           </div>
-          <div
-            class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full text-base font-semibold"
-            :class="avatarClasses(node.card)"
-          >
-            <img
-              v-if="node.card.photoUrl"
-              :src="node.card.photoUrl"
-              :alt="node.card.name"
-              class="h-full w-full object-cover"
-              loading="lazy"
-            />
-            <span v-else>{{ initials(node.card) }}</span>
+          <div class="relative shrink-0">
+            <div
+              class="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full text-base font-semibold"
+              :class="avatarClasses(node.card)"
+            >
+              <img
+                v-if="node.card.photoUrl"
+                :src="node.card.photoUrl"
+                :alt="node.card.name"
+                class="h-full w-full object-cover"
+                loading="lazy"
+              />
+              <span v-else>{{ initials(node.card) }}</span>
+            </div>
+            <!-- badge LinkedIn (klik → profil, w nowej karcie) -->
+            <a
+              v-if="node.card.linkedinUrl"
+              :href="node.card.linkedinUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-[5px] bg-[#0a66c2] text-white shadow ring-2 ring-white transition hover:brightness-110"
+              title="Profil LinkedIn"
+              @click.stop
+              @dblclick.stop
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" class="h-3 w-3"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.94v5.67H9.35V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 110-4.13 2.06 2.06 0 010 4.13zM7.12 20.45H3.55V9h3.57v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.22.79 24 1.77 24h20.45c.98 0 1.78-.78 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/></svg>
+            </a>
           </div>
           <div class="min-w-0 flex-1">
             <div class="line-clamp-2 text-[13px] font-semibold leading-tight text-slate-800">

@@ -7,7 +7,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import type { GedcomDateValue, PersonName, Sex } from '@rodno/shared';
+import type { GedcomDateValue, PersonName, Sex, WorkExperience } from '@rodno/shared';
 
 /**
  * Osoba. Pola zdarzeń urodzenia/śmierci są zdenormalizowane (rok, miejsce, foto)
@@ -77,6 +77,21 @@ export class Individual {
 
   @Column({ type: 'varchar', nullable: true })
   photoUrl: string | null;
+
+  /** Kontakt / social (z GEDCOM: _LINKEDIN, _X/_TWITTER, EMAIL). */
+  @Column({ type: 'varchar', nullable: true })
+  linkedinUrl: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  xUrl: string | null;
+
+  /** Wiele e-maili na osobę. */
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  emails: string[];
+
+  /** Doświadczenie zawodowe (z OCCU: stanowisko, firma AGNC, okres, logo). */
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  experience: WorkExperience[];
 
   /** Zdenormalizowane flagi grafu do przycisków +/− w drzewie. */
   @Column({ default: false })

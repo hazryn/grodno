@@ -3,6 +3,8 @@ import { TreeGraph, type TreeLayout } from '../utils/treeGraph';
 import type { TreeSummary } from '../composables/useApi';
 
 const api = useApi();
+const route = useRoute();
+const router = useRouter();
 const graph = new TreeGraph();
 const layout = shallowRef<TreeLayout>({ nodes: [], links: [], width: 0, height: 0 });
 const focalId = ref('');
@@ -27,6 +29,8 @@ async function focusOn(id: string, deep = false) {
   // Centruj na osobie DOPIERO po przebudowie layoutu (na nowej pozycji focal-a).
   await nextTick();
   treeRef.value?.centerOnFocal();
+  // Zapisz aktywną osobę w URL (?p=id) — F5 nie resetuje widoku.
+  if (route.query.p !== id) router.replace({ query: { ...route.query, p: id } });
 }
 
 async function expandUp(id: string) {
@@ -97,10 +101,22 @@ function onAddRelative(label: string) {
 onMounted(async () => {
   try {
     tree.value = await api.tree('szejna');
-    if (tree.value.focalId) await focusOn(tree.value.focalId, true);
-    else error.value = 'Drzewo jest puste — uruchom import GEDCOM.';
+    const urlId = typeof route.query.p === 'string' ? route.query.p : null;
+    const start = urlId ?? tree.value.focalId;
+    if (start) {
+      try {
+        await focusOn(start, true);
+      } catch {
+        // id z URL nieaktualne (np. po re-imporcie zmieniły się UUID-y) → domyślna osoba
+        if (tree.value.focalId && start !== tree.value.focalId) {
+          await focusOn(tree.value.focalId, true);
+        }
+      }
+    } else {
+      error.value = 'Drzewo jest puste — uruchom import GEDCOM.';
+    }
   } catch (e) {
-    error.value = 'Nie mogę połączyć się z API (http://localhost:3001). Czy backend działa?';
+    error.value = 'Nie mogę połączyć się z API (http://localhost:5201). Czy backend działa?';
   } finally {
     loading.value = false;
   }

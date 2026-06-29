@@ -226,46 +226,74 @@ export class TreeGraph {
         ? 0
         : kids.reduce((a, k) => a + measureD(k), 0) + H_GAP * (kids.length - 1);
 
-    // Zasięg węzła względem lewej krawędzi karty osoby (=0).
-    // Prawy związek (małżonek + dzieci) rośnie w prawo, lewy w lewo — osoba w środku.
-    const nodeExtents = (n: DNode): { left: number; right: number } => {
+    // Geometria węzła względem lewej krawędzi karty osoby (=0). Para = jednostka.
+    // Prawy związek rośnie w prawo, lewy w lewo. Gdy OBA związki mają dzieci, rozsuwamy
+    // małżonków o szerokość dzieci, by grupy dzieci spotykały się na środku osoby (bez nakładania).
+    const nodeGeom = (n: DNode) => {
       const pc = CARD_W / 2;
+      const rkw = n.right ? sumKids(n.right.kids) : 0;
+      const lkw = n.left ? sumKids(n.left.kids) : 0;
+      // Gdy OBA związki mają dzieci: blok dzieci idzie z boku osoby, a małżonek jest
+      // wyśrodkowany NAD swoimi dziećmi (blisko kreski w dół) — grupy się nie nakładają.
+      const bothKids = rkw > 0 && lkw > 0;
       let right = CARD_W;
       let left = 0;
+      let rsLeft: number | null = null;
+      let rightCenter: number | null = null;
+      let lsLeft: number | null = null;
+      let leftCenter: number | null = null;
+
       if (n.right) {
-        const rkw = sumKids(n.right.kids);
-        let center = pc;
-        if (n.right.spouseId) {
-          const rsLeft = CARD_W + SPOUSE_GAP;
-          right = Math.max(right, rsLeft + CARD_W);
-          center = (pc + rsLeft + CARD_W / 2) / 2;
-        }
-        if (rkw > 0) {
-          // dzieci wyśrodkowane pod parą — mogą wychodzić w OBIE strony
-          right = Math.max(right, center + rkw / 2);
-          left = Math.min(left, center - rkw / 2);
+        if (bothKids) {
+          rightCenter = CARD_W + H_GAP + rkw / 2; // dzieci na prawo od osoby
+          right = Math.max(right, CARD_W + H_GAP + rkw);
+          if (n.right.spouseId) {
+            rsLeft = rightCenter + SPOUSE_GAP; // żona DELIKATNIE W BOK (na prawo od kreski w dół)
+            right = Math.max(right, rsLeft + CARD_W);
+          }
+        } else {
+          if (n.right.spouseId) {
+            rsLeft = CARD_W + SPOUSE_GAP;
+            right = Math.max(right, rsLeft + CARD_W);
+            rightCenter = (pc + rsLeft + CARD_W / 2) / 2;
+          } else {
+            rightCenter = pc;
+          }
+          if (rkw > 0) {
+            right = Math.max(right, rightCenter + rkw / 2);
+            left = Math.min(left, rightCenter - rkw / 2);
+          }
         }
       }
       if (n.left) {
-        const lkw = sumKids(n.left.kids);
-        let center = pc;
-        if (n.left.spouseId) {
-          const lsLeft = -SPOUSE_GAP - CARD_W;
-          left = Math.min(left, lsLeft);
-          center = (pc + lsLeft + CARD_W / 2) / 2;
-        }
-        if (lkw > 0) {
-          left = Math.min(left, center - lkw / 2);
-          right = Math.max(right, center + lkw / 2);
+        if (bothKids) {
+          leftCenter = -(H_GAP + lkw / 2);
+          left = Math.min(left, -(H_GAP + lkw));
+          if (n.left.spouseId) {
+            lsLeft = leftCenter - SPOUSE_GAP - CARD_W; // żona delikatnie w bok (na lewo od kreski)
+            left = Math.min(left, lsLeft);
+          }
+        } else {
+          if (n.left.spouseId) {
+            lsLeft = -SPOUSE_GAP - CARD_W;
+            left = Math.min(left, lsLeft);
+            leftCenter = (pc + lsLeft + CARD_W / 2) / 2;
+          } else {
+            leftCenter = pc;
+          }
+          if (lkw > 0) {
+            left = Math.min(left, leftCenter - lkw / 2);
+            right = Math.max(right, leftCenter + lkw / 2);
+          }
         }
       }
       if (n.extras.length) right += n.extras.length * (CARD_W + SPOUSE_GAP);
-      return { left, right };
+      return { left, right, rsLeft, rightCenter, lsLeft, leftCenter };
     };
 
     const measureD = (n: DNode): number => {
-      const e = nodeExtents(n);
-      return e.right - e.left;
+      const g = nodeGeom(n);
+      return g.right - g.left;
     };
 
     const placeKids = (kids: DNode[], centerX: number, depth: number) => {
@@ -278,39 +306,34 @@ export class TreeGraph {
     };
 
     const placeD = (n: DNode, blockLeft: number, depth: number): number => {
-      const e = nodeExtents(n);
-      const personX = blockLeft - e.left;
-      const pcX = personX + CARD_W / 2;
+      const g = nodeGeom(n);
+      const personX = blockLeft - g.left;
       const y = depth * DY;
       const role: NodeRole = n.id === focalId ? 'focal' : depth === 0 ? 'ancestor' : 'descendant';
       pos.set(n.id, { card: this.cards.get(n.id)!, x: personX, y, role });
 
       let rightmost = personX + CARD_W;
       if (n.right) {
-        let center = pcX;
-        if (n.right.spouseId) {
-          const rsX = personX + CARD_W + SPOUSE_GAP;
+        if (n.right.spouseId && g.rsLeft !== null) {
+          const rsX = personX + g.rsLeft;
           pos.set(n.right.spouseId, { card: this.cards.get(n.right.spouseId)!, x: rsX, y, role: 'spouse' });
-          rightmost = rsX + CARD_W;
-          center = (pcX + rsX + CARD_W / 2) / 2;
+          rightmost = Math.max(rightmost, rsX + CARD_W);
         }
-        placeKids(n.right.kids, center, depth + 1);
+        if (g.rightCenter !== null) placeKids(n.right.kids, personX + g.rightCenter, depth + 1);
       }
       if (n.left) {
-        let center = pcX;
-        if (n.left.spouseId) {
-          const lsX = personX - SPOUSE_GAP - CARD_W;
+        if (n.left.spouseId && g.lsLeft !== null) {
+          const lsX = personX + g.lsLeft;
           pos.set(n.left.spouseId, { card: this.cards.get(n.left.spouseId)!, x: lsX, y, role: 'spouse' });
-          center = (pcX + lsX + CARD_W / 2) / 2;
         }
-        placeKids(n.left.kids, center, depth + 1);
+        if (g.leftCenter !== null) placeKids(n.left.kids, personX + g.leftCenter, depth + 1);
       }
       for (const exId of n.extras) {
         const exX = rightmost + SPOUSE_GAP;
         pos.set(exId, { card: this.cards.get(exId)!, x: exX, y, role: 'spouse' });
         rightmost = exX + CARD_W;
       }
-      return pcX;
+      return personX + CARD_W / 2;
     };
 
     let forestLeft = 0;
@@ -399,30 +422,43 @@ export class TreeGraph {
     const links: TreeLink[] = [];
     const cx = (n: PositionedNode) => n.x + CARD_W / 2;
 
-    // Dziecko → JEDNA linia od punktu między rodzicami (linii pary) w dół.
-    const linkedChild = new Set<string>();
+    // Łączniki dziecko → rodzice. Grupujemy po parze rodziców: gdy rodzice OBOK siebie,
+    // kreska od środka linii pary; gdy DALEKO (wiele związków), od kolorowej linii pary
+    // nad środkiem dzieci (nie spod małżonka). Pojedynczy rodzic → spod niego.
+    const families = new Map<string, { fId: string | null; mId: string | null; kids: PositionedNode[] }>();
     for (const [childId, c] of pos) {
-      if (linkedChild.has(childId)) continue;
       const rel = this.parents.get(childId);
       if (!rel) continue;
-      const f = rel.fatherId ? pos.get(rel.fatherId) : undefined;
-      const m = rel.motherId ? pos.get(rel.motherId) : undefined;
+      const fId = rel.fatherId && pos.has(rel.fatherId) ? rel.fatherId : null;
+      const mId = rel.motherId && pos.has(rel.motherId) ? rel.motherId : null;
+      if (!fId && !mId) continue;
+      const key = `${fId ?? ''}|${mId ?? ''}`;
+      let g = families.get(key);
+      if (!g) {
+        g = { fId, mId, kids: [] };
+        families.set(key, g);
+      }
+      g.kids.push(c);
+    }
+    for (const g of families.values()) {
+      const f = g.fId ? pos.get(g.fId) : undefined;
+      const m = g.mId ? pos.get(g.mId) : undefined;
       let x2: number;
       let y2: number;
       if (f && m) {
-        x2 = (cx(f) + cx(m)) / 2;
-        y2 = Math.min(f.y, m.y) + CARD_H / 2;
-      } else if (f) {
-        x2 = cx(f);
-        y2 = f.y + CARD_H;
-      } else if (m) {
-        x2 = cx(m);
-        y2 = m.y + CARD_H;
+        y2 = Math.min(f.y, m.y) + CARD_H / 2; // wysokość linii pary
+        if (Math.abs(f.x - m.x) <= CARD_W + 3 * SPOUSE_GAP) {
+          x2 = (cx(f) + cx(m)) / 2; // para obok siebie → środek pary
+        } else {
+          const kc = (Math.min(...g.kids.map(cx)) + Math.max(...g.kids.map(cx))) / 2;
+          x2 = kc; // para daleko → punkt na linii nad środkiem dzieci
+        }
       } else {
-        continue;
+        const p = (f ?? m)!;
+        x2 = cx(p);
+        y2 = p.y + CARD_H;
       }
-      linkedChild.add(childId);
-      links.push({ x1: cx(c), y1: c.y, x2, y2, kind: 'parent' });
+      for (const c of g.kids) links.push({ x1: cx(c), y1: c.y, x2, y2, kind: 'parent' });
     }
 
     // Linie par — ciągłe, kolor wg typu związku. Po jednej dla KAŻDEGO związku osoby.

@@ -35,6 +35,10 @@ const EVENT_LABELS: Record<string, string> = {
   NATU: 'Naturalizacja', RELI: 'Religia', DSCR: 'Opis', EVEN: 'Wydarzenie',
 };
 const eventLabel = (e: EventDto) => EVENT_LABELS[e.type] ?? e.type;
+const linkLabel = (l: { label: string | null; url: string }) => {
+  if (l.label) return l.label;
+  try { return new URL(l.url).hostname.replace(/^www\./, ''); } catch { return l.url; }
+};
 
 function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase() ?? '').join('');
@@ -82,7 +86,18 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
             także: {{ data.names.slice(1).map((n) => n.full).join(', ') }}
           </p>
           <!-- kontakt / social -->
-          <div v-if="data.linkedinUrl || data.xUrl || data.emails.length" class="mt-2 flex flex-wrap items-center gap-1.5">
+          <div v-if="data.linkedinUrl || data.xUrl || data.facebookUrl || data.emails.length" class="mt-2 flex flex-wrap items-center gap-1.5">
+            <a
+              v-if="data.facebookUrl"
+              :href="data.facebookUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-1 rounded-md bg-[#1877f2] px-2 py-1 text-xs font-medium text-white transition hover:brightness-110"
+              title="Profil Facebook"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" class="h-3.5 w-3.5"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07c0 6.02 4.39 11.01 10.13 11.93v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.08 24 18.09 24 12.07z"/></svg>
+              Facebook
+            </a>
             <a
               v-if="data.linkedinUrl"
               :href="data.linkedinUrl"
@@ -120,8 +135,14 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
         <button class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" @click="emit('close')">✕</button>
       </div>
 
-      <!-- treść przewijalna: doświadczenie + oś czasu -->
+      <!-- treść przewijalna: bio + doświadczenie + oś czasu -->
       <div class="flex-1 space-y-6 overflow-y-auto p-5">
+        <!-- nota biograficzna -->
+        <section v-if="data.bio">
+          <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">O osobie</h3>
+          <p class="whitespace-pre-line text-sm leading-relaxed text-slate-600">{{ data.bio }}</p>
+        </section>
+
         <!-- doświadczenie (styl LinkedIn — logo firmy + stanowisko + okres) -->
         <section v-if="data.experience.length">
           <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Doświadczenie</h3>
@@ -142,6 +163,24 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
                 <div v-if="x.company" class="text-sm leading-tight text-slate-600">{{ x.company }}</div>
                 <div v-if="periodText(x)" class="mt-0.5 text-xs text-slate-400">{{ periodText(x) }}</div>
               </div>
+            </li>
+          </ul>
+        </section>
+
+        <!-- linki zewnętrzne (nekrologi, strony pamięci, Grobonet, Find a Grave...) -->
+        <section v-if="data.links.length">
+          <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Linki</h3>
+          <ul class="space-y-1.5">
+            <li v-for="(l, i) in data.links" :key="i">
+              <a
+                :href="l.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1.5 text-sm text-sky-700 hover:underline"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5 shrink-0"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                {{ linkLabel(l) }}
+              </a>
             </li>
           </ul>
         </section>

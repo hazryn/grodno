@@ -8,6 +8,7 @@ import {
   gedcomDateSortKey,
   gedcomDateYear,
   normalizeSex,
+  femaleSurname,
   type GedcomDateValue,
   type PersonName,
   type WebLink,
@@ -168,6 +169,9 @@ export class GedcomImportService {
 
     // Pass 4 — flagi grafu (hasParents / childCount).
     this.computeGraphFlags(ctx);
+
+    // Pass 5 — nazwiska po ślubie kobiet (z nazwiska męża, forma żeńska).
+    this.deriveMarriedNames(ctx);
 
     // Zapis w transakcji (z wyczyszczeniem poprzedniego drzewa o tej nazwie).
     await this.ds.transaction(async (m) => {
@@ -545,6 +549,37 @@ export class GedcomImportService {
     if (birthYear === null) return false; // brak danych historyczny — nie oznaczamy jako żyjący
     const currentYear = new Date().getFullYear();
     return currentYear - birthYear < 100;
+  }
+
+  /**
+   * Dla każdej zamężnej kobiety dokłada nazwisko po ślubie = nazwisko męża w formie
+   * żeńskiej (gdy różne od panieńskiego i jeszcze nie ma). Wiele małżeństw → kolejne
+   * warianty (z 1./2. małżeństwa). `primaryName` (panieńskie) bez zmian.
+   */
+  private deriveMarriedNames(ctx: BuildContext): void {
+    const byId = new Map([...ctx.individuals.values()].map((i) => [i.id, i]));
+    for (const fam of ctx.families.values()) {
+      if (!fam.husbandId || !fam.wifeId) continue;
+      const husband = byId.get(fam.husbandId);
+      const wife = byId.get(fam.wifeId);
+      if (!husband || !wife || wife.sex !== 'F') continue;
+
+      const married = femaleSurname(husband.names?.[0]?.surname ?? null);
+      if (!married) continue;
+      const primary = wife.names?.[0];
+      const primarySurname = (primary?.surname ?? '').trim().toLowerCase();
+      if (married.toLowerCase() === primarySurname) continue;
+      const already = (wife.names ?? []).some(
+        (n) => n.type === 'married' && (n.surname ?? '').trim().toLowerCase() === married.toLowerCase(),
+      );
+      if (already) continue;
+
+      const given = (primary?.given ?? primary?.full?.split(/\s+/)[0] ?? '').trim();
+      wife.names = [
+        ...(wife.names ?? []),
+        { type: 'married', given: given || null, surname: married, full: `${given} ${married}`.trim() },
+      ];
+    }
   }
 
   private computeGraphFlags(ctx: BuildContext): void {

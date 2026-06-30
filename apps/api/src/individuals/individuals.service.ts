@@ -9,6 +9,7 @@ import type {
   EventParticipantDto,
   GedcomDateValue,
   IndividualDto,
+  MarriageDto,
   MediaDto,
   MediaTagDto,
   PersonCard,
@@ -414,6 +415,9 @@ export class IndividualsService {
       if (m) media.push(await this.toMediaDto(m));
     }
 
+    // małżeństwa (ekran „Dane"): partner + MARR event (data/miejsce) + zdjęcie ślubu
+    const marriages = await this.buildMarriages(id, partnerships, events);
+
     return {
       id: indi.id,
       treeId: indi.treeId,
@@ -435,7 +439,46 @@ export class IndividualsService {
       emails: indi.emails ?? [],
       experience: indi.experience ?? [],
       links: indi.links ?? [],
+      marriages,
     };
+  }
+
+  /** Buduje listę małżeństw osoby (partner + MARR + zdjęcie ślubu). */
+  private async buildMarriages(
+    ownerId: string,
+    partnerships: Partnership[],
+    events: Event[],
+  ): Promise<MarriageDto[]> {
+    if (!partnerships.length) return [];
+    const spouseIds = partnerships
+      .map((p) => (p.partnerAId === ownerId ? p.partnerBId : p.partnerAId))
+      .filter((x): x is string => !!x);
+    const spouses = spouseIds.length
+      ? await this.indiRepo.find({ where: { id: In(spouseIds) } })
+      : [];
+    const spouseById = new Map(spouses.map((s) => [s.id, s]));
+
+    const partnershipIds = partnerships.map((p) => p.id);
+    const photos = partnershipIds.length
+      ? await this.mediaRepo.find({ where: { partnershipId: In(partnershipIds) } })
+      : [];
+    const photoByPartnership = new Map(photos.map((m) => [m.partnershipId as string, m]));
+
+    return partnerships.map((p) => {
+      const spouseId = p.partnerAId === ownerId ? p.partnerBId : p.partnerAId;
+      const spouse = spouseId ? spouseById.get(spouseId) ?? null : null;
+      const marr = events.find((e) => e.partnershipId === p.id && e.type === 'MARR');
+      const photo = photoByPartnership.get(p.id);
+      return {
+        partnershipId: p.id,
+        spouseId: spouse?.id ?? null,
+        spouseName: spouse ? formatPersonName(spouse.names) : null,
+        type: p.type,
+        date: marr?.date ?? null,
+        placeName: marr?.placeName ?? null,
+        photoUrl: photo ? this.media.presign(photo.storageKey) : null,
+      };
+    });
   }
 
   /* ----------------------------------- media DTO ----------------------------------- */
@@ -620,6 +663,119 @@ export class IndividualsService {
     );
     if (rows.length) await this.tagRepo.save(rows);
     return this.toMediaDto(m);
+  }
+
+  /* ------------------------------------ zapis: małżeństwa ------------------------------------ */
+
+  async addMarriage(
+    ownerId: string,
+    input: { spouseId: string; type?: string },
+  ): Promise<IndividualDto> {
+    const owner = await this.indiRepo.findOne({ where: { id: ownerId } });
+    if (!owner) throw new NotFoundException(`Osoba ${ownerId} nie istnieje`);
+    const maxRow = await this.partnerRepo.findOne({
+      where: [{ partnerAId: ownerId }, { partnerBId: ownerId }],
+      order: { sortOrder: 'DESC' },
+    });
+    const p = this.partnerRepo.create({
+      treeId: owner.treeId,
+      partnerAId: ownerId,
+      partnerBId: input.spouseId,
+      type: input.type === 'partner' ? 'partner' : 'married',
+      sortOrder: (maxRow?.sortOrder ?? -1) + 1,
+    });
+    await this.partnerRepo.save(p);
+    return this.getIndividual(ownerId);
+  }
+
+  async patchMarriage(
+    ownerId: string,
+    partnershipId: string,
+    input: {
+      spouseId?: string | null;
+      type?: string;
+      date?: GedcomDateValue | null;
+      dateRaw?: string | null;
+      placeName?: string | null;
+    },
+  ): Promise<IndividualDto> {
+    const p = await this.partnerRepo.findOne({ where: { id: partnershipId } });
+    if (!p) throw new NotFoundException(`Małżeństwo ${partnershipId} nie istnieje`);
+
+    if (input.spouseId !== undefined) {
+      // podmień małżonka po stronie przeciwnej do właściciela
+      if (p.partnerAId === ownerId) p.partnerBId = input.spouseId;
+      else p.partnerAId = input.spouseId;
+    }
+    if (input.type !== undefined) p.type = input.type === 'partner' ? 'partner' : 'married';
+    await this.partnerRepo.save(p);
+
+    // upsert zdarzenia MARR (data/miejsce) na parze
+    if (input.date !== undefined || input.dateRaw !== undefined || input.placeName !== undefined) {
+      const date =
+        input.date !== undefined
+          ? input.date
+          : input.dateRaw
+            ? parseGedcomDate(input.dateRaw)
+            : null;
+      let marr = await this.eventRepo.findOne({
+        where: { partnershipId, type: 'MARR' },
+      });
+      if (!marr) {
+        marr = this.eventRepo.create({
+          treeId: p.treeId,
+          ownerType: 'family',
+          partnershipId,
+          type: 'MARR',
+        });
+      }
+      if (input.date !== undefined || input.dateRaw !== undefined) {
+        marr.date = date;
+        marr.sortKey = gedcomDateSortKey(date);
+      }
+      if (input.placeName !== undefined) marr.placeName = input.placeName;
+      await this.eventRepo.save(marr);
+    }
+    return this.getIndividual(ownerId);
+  }
+
+  async deleteMarriage(ownerId: string, partnershipId: string): Promise<IndividualDto> {
+    const p = await this.partnerRepo.findOne({ where: { id: partnershipId } });
+    if (!p) throw new NotFoundException(`Małżeństwo ${partnershipId} nie istnieje`);
+    // zdjęcie ślubu
+    const photo = await this.mediaRepo.findOne({ where: { partnershipId } });
+    if (photo?.storageKey) await this.media.deleteObject(photo.storageKey).catch(() => undefined);
+    if (photo) await this.mediaRepo.delete(photo.id);
+    // zdarzenia pary + partnerstwo
+    await this.eventRepo.delete({ partnershipId });
+    await this.partnerRepo.delete(partnershipId);
+    return this.getIndividual(ownerId);
+  }
+
+  async uploadMarriagePhoto(
+    ownerId: string,
+    partnershipId: string,
+    file: UploadedFile,
+  ): Promise<IndividualDto> {
+    const p = await this.partnerRepo.findOne({ where: { id: partnershipId } });
+    if (!p) throw new NotFoundException(`Małżeństwo ${partnershipId} nie istnieje`);
+    const key = `marriages/${randomUUID()}.${this.extFromMime(file.mimetype)}`;
+    await this.media.putObject(key, file.buffer, file.mimetype);
+    // zastąp poprzednie zdjęcie ślubu
+    const prev = await this.mediaRepo.findOne({ where: { partnershipId } });
+    if (prev) {
+      if (prev.storageKey) await this.media.deleteObject(prev.storageKey).catch(() => undefined);
+      await this.mediaRepo.delete(prev.id);
+    }
+    const m = this.mediaRepo.create({
+      treeId: p.treeId,
+      partnershipId,
+      storageKey: key,
+      mimeType: file.mimetype,
+      title: file.originalname ?? null,
+    });
+    await this.mediaRepo.save(m);
+    return this.getIndividual(ownerId);
   }
 
   /* ------------------------------------ zapis: oś czasu ------------------------------------ */

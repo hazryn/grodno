@@ -27,6 +27,11 @@ export class Media {
   @Column({ type: 'uuid', nullable: true })
   individualId: string | null;
 
+  /** Zdjęcie ślubu — wisi na parze (partnerstwie), nie na osobie. */
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  partnershipId: string | null;
+
   /** xref z GEDCOM (@O1@); null dla zdjęć wgranych przez UI. */
   @Column({ type: 'varchar', nullable: true })
   xref: string | null;

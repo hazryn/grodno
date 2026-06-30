@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -129,5 +130,46 @@ export class IndividualsController {
     @Body() body: EventInput,
   ): Promise<EventDto> {
     return this.service.addEvent(id, body);
+  }
+
+  /* ----------------------------------- małżeństwa ----------------------------------- */
+
+  /** Dodaj małżeństwo/związek (małżonek z drzewa). */
+  @Post(':id/marriages')
+  addMarriage(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: { spouseId: string; type?: string },
+  ): Promise<IndividualDto> {
+    return this.service.addMarriage(id, body);
+  }
+
+  /** Edytuj małżeństwo: data, miejsce, typ, zmiana małżonka. */
+  @Patch(':id/marriages/:pid')
+  patchMarriage(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('pid', new ParseUUIDPipe()) pid: string,
+    @Body() body: Parameters<IndividualsService['patchMarriage']>[2],
+  ): Promise<IndividualDto> {
+    return this.service.patchMarriage(id, pid, body);
+  }
+
+  /** Usuń małżeństwo (partnerstwo + zdarzenia + zdjęcie ślubu). */
+  @Delete(':id/marriages/:pid')
+  deleteMarriage(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('pid', new ParseUUIDPipe()) pid: string,
+  ): Promise<IndividualDto> {
+    return this.service.deleteMarriage(id, pid);
+  }
+
+  /** Wgraj/zmień zdjęcie ślubu. */
+  @Post(':id/marriages/:pid/photo')
+  @UseInterceptors(FileInterceptor('file'))
+  marriagePhoto(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('pid', new ParseUUIDPipe()) pid: string,
+    @UploadedFile() file: MulterFile,
+  ): Promise<IndividualDto> {
+    return this.service.uploadMarriagePhoto(id, pid, file as ServiceFile);
   }
 }

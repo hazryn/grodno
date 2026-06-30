@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
@@ -10,6 +10,7 @@ import {
   normalizeSex,
   type GedcomDateValue,
   type PersonName,
+  type WebLink,
   type WorkExperience,
 } from '@rodno/shared';
 import {
@@ -40,6 +41,24 @@ export interface ImportStats {
   places: number;
   sources: number;
   media: number;
+}
+
+/** Ustalona przestrzeń nazw Rodno do deterministycznych UUID v5. */
+const RODNO_UUID_NS = '8f3a2b1c-4d5e-5f60-9a7b-1c2d3e4f5a6b';
+
+/**
+ * Deterministyczny UUID v5 (SHA-1) z (przestrzeń nazw, nazwa). Te same wejścia →
+ * ten sam UUID, więc re-import NIE zmienia kluczy głównych — linki `?p=<id>` są
+ * trwałe między importami. Klucz wyprowadzamy z (treeId + xref), bo xref z GEDCOM
+ * jest stabilny, a `randomUUID()` losowałby nowe id przy każdym imporcie.
+ */
+function stableUuid(name: string, namespace = RODNO_UUID_NS): string {
+  const ns = Buffer.from(namespace.replace(/-/g, ''), 'hex');
+  const h = createHash('sha1').update(ns).update(name, 'utf8').digest();
+  h[6] = (h[6] & 0x0f) | 0x50; // wersja 5
+  h[8] = (h[8] & 0x3f) | 0x80; // wariant RFC 4122
+  const x = h.subarray(0, 16).toString('hex');
+  return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20, 32)}`;
 }
 
 /** Tagi pod INDI, które NIE są zdarzeniami (mają własną obsługę albo są strukturalne). */
@@ -75,16 +94,49 @@ export class GedcomImportService {
 
   constructor(@InjectDataSource() private readonly ds: DataSource) {}
 
-  async importFromFile(treeName: string, filePath: string): Promise<ImportStats> {
+  async importFromFile(
+    treeName: string,
+    filePath: string,
+    mode: 'replace' | 'seedIfEmpty' = 'replace',
+  ): Promise<ImportStats> {
     const text = await readFile(filePath, 'utf8');
-    return this.importFromText(treeName, text);
+    return this.importFromText(treeName, text, mode);
   }
 
-  async importFromText(treeName: string, text: string): Promise<ImportStats> {
+  async importFromText(
+    treeName: string,
+    text: string,
+    mode: 'replace' | 'seedIfEmpty' = 'replace',
+  ): Promise<ImportStats> {
+    // seed-once: DB jest źródłem prawdy — gdy drzewo ma już osoby, nie czyść i nie nadpisuj.
+    if (mode === 'seedIfEmpty') {
+      const tree = await this.ds.getRepository(Tree).findOne({ where: { name: treeName } });
+      if (tree) {
+        const count = await this.ds
+          .getRepository(Individual)
+          .count({ where: { treeId: tree.id } });
+        if (count > 0) {
+          this.logger.log(
+            `seed-if-empty: drzewo "${treeName}" ma ${count} osób — pomijam import (DB = źródło prawdy)`,
+          );
+          return {
+            treeId: tree.id,
+            individuals: count,
+            families: 0,
+            familyChildren: 0,
+            events: 0,
+            places: 0,
+            sources: 0,
+            media: 0,
+          };
+        }
+      }
+    }
+
     const roots = parseGedcom(text);
     this.logger.log(`Sparsowano ${roots.length} rekordów 0-poziomu z GEDCOM`);
 
-    const treeId = randomUUID();
+    const treeId = stableUuid(`tree:${treeName}`);
     const ctx: BuildContext = {
       treeId,
       places: [],
@@ -149,9 +201,9 @@ export class GedcomImportService {
 
   private buildSource(rec: GedcomNode, ctx: BuildContext): void {
     const s = new Source();
-    s.id = randomUUID();
     s.treeId = ctx.treeId;
     s.xref = rec.xref!;
+    s.id = stableUuid(`sour:${ctx.treeId}:${s.xref}`);
     s.title = childValue(rec, 'TITL') ?? childValue(rec, 'ABBR') ?? null;
     s.author = childValue(rec, 'AUTH') ?? null;
     s.text = childValue(rec, 'TEXT') ?? null;
@@ -160,9 +212,9 @@ export class GedcomImportService {
 
   private buildMedia(rec: GedcomNode, ctx: BuildContext): void {
     const m = new Media();
-    m.id = randomUUID();
     m.treeId = ctx.treeId;
     m.xref = rec.xref!;
+    m.id = stableUuid(`obje:${ctx.treeId}:${m.xref}`);
     const fileNode = firstChild(rec, 'FILE');
     m.filename = fileNode?.value ?? null;
     m.title =
@@ -178,9 +230,9 @@ export class GedcomImportService {
 
   private buildIndividual(rec: GedcomNode, ctx: BuildContext): void {
     const indi = new Individual();
-    indi.id = randomUUID();
     indi.treeId = ctx.treeId;
     indi.xref = rec.xref!;
+    indi.id = stableUuid(`indi:${ctx.treeId}:${indi.xref}`);
     indi.sex = normalizeSex(childValue(rec, 'SEX'));
 
     // Imiona.
@@ -236,7 +288,9 @@ export class GedcomImportService {
     indi.emails = this.collectEmails(rec);
     indi.linkedinUrl = childValue(rec, '_LINKEDIN') ?? childValue(rec, '_LNKD') ?? null;
     indi.xUrl = childValue(rec, '_X') ?? childValue(rec, '_TWITTER') ?? null;
+    indi.facebookUrl = childValue(rec, '_FACEBOOK') ?? childValue(rec, '_FB') ?? null;
     indi.experience = this.buildExperience(rec);
+    indi.links = this.collectLinks(rec);
 
     // FAMC — zapamiętaj pierwszą rodzinę rodzicielską.
     const famc = childrenWithTag(rec, 'FAMC')
@@ -249,9 +303,9 @@ export class GedcomImportService {
 
   private buildFamily(rec: GedcomNode, ctx: BuildContext): void {
     const fam = new Family();
-    fam.id = randomUUID();
     fam.treeId = ctx.treeId;
     fam.xref = rec.xref!;
+    fam.id = stableUuid(`fam:${ctx.treeId}:${fam.xref}`);
 
     const husbXref = asPointer(childValue(rec, 'HUSB'));
     const wifeXref = asPointer(childValue(rec, 'WIFE'));
@@ -398,6 +452,20 @@ export class GedcomImportService {
    * Wszystkie e-maile osoby (bez duplikatów). Skanuje całe poddrzewo INDI, bo
    * webtrees zagnieżdża EMAIL pod RESI (`1 RESI` › `2 EMAIL ...`), nie tylko wprost pod INDI.
    */
+  /** Linki zewnętrzne z GEDCOM: _LINK (z opcjonalnym TITL/TYPE jako etykietą), WWW, URL. */
+  private collectLinks(rec: GedcomNode): WebLink[] {
+    const out: WebLink[] = [];
+    for (const tag of ['_LINK', 'WWW', 'URL']) {
+      for (const n of childrenWithTag(rec, tag)) {
+        const url = n.value?.trim();
+        if (!url || out.some((l) => l.url === url)) continue;
+        const label = (childValue(n, 'TITL') ?? childValue(n, 'TYPE'))?.trim() || null;
+        out.push({ label, url });
+      }
+    }
+    return out;
+  }
+
   private collectEmails(rec: GedcomNode): string[] {
     const out: string[] = [];
     const isEmail = (t: string) => t === 'EMAIL' || t === '_EMAIL' || t === 'EMAI';

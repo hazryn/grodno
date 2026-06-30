@@ -92,6 +92,9 @@ export class Individual {
   @Column({ type: 'varchar', nullable: true })
   facebookUrl: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  instagramUrl: string | null;
+
   /** Wiele e-maili na osobę. */
   @Column({ type: 'jsonb', default: () => "'[]'" })
   emails: string[];

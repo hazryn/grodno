@@ -1,11 +1,38 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UploadedFile,
+  UploadedFiles,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import type {
   Bundle,
   BundlePayload,
+  EventDto,
   IndividualDto,
+  MediaDto,
   PersonCard,
 } from '@rodno/shared';
-import { IndividualsService } from './individuals.service';
+import {
+  IndividualsService,
+  type EventInput,
+  type UpdateIndividualInput,
+  type UploadedFile as ServiceFile,
+} from './individuals.service';
+
+/** Minimalny kształt pliku z Multera (bez @types/multer). */
+interface MulterFile {
+  buffer: Buffer;
+  mimetype: string;
+  originalname: string;
+}
 
 function toInt(value: string | undefined, fallback: number): number {
   const n = Number.parseInt(value ?? '', 10);
@@ -47,5 +74,60 @@ export class IndividualsController {
     const upN = Math.min(Math.max(toInt(up, 4), 0), 8);
     const downN = Math.min(Math.max(toInt(down, 2), 0), 6);
     return this.service.getPayload(id, upN, downN);
+  }
+
+  /* ----------------------------------- zapis ----------------------------------- */
+
+  /** Edycja danych podstawowych (imię/nazwisko, płeć, bio, sociale, e-maile). */
+  @Patch(':id')
+  update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: UpdateIndividualInput,
+  ): Promise<IndividualDto> {
+    return this.service.updateIndividual(id, body);
+  }
+
+  /** Ustaw avatar (już docięty po stronie klienta). */
+  @Post(':id/avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadAvatar(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file: MulterFile,
+  ): Promise<IndividualDto> {
+    return this.service.uploadAvatar(id, file as ServiceFile);
+  }
+
+  /** Galeria osoby (bez avatara), posortowana. */
+  @Get(':id/gallery')
+  gallery(@Param('id', new ParseUUIDPipe()) id: string): Promise<MediaDto[]> {
+    return this.service.listGallery(id);
+  }
+
+  /** Wgraj jedno lub wiele zdjęć do galerii. */
+  @Post(':id/media')
+  @UseInterceptors(FilesInterceptor('files', 30))
+  uploadMedia(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFiles() files: MulterFile[],
+  ): Promise<MediaDto[]> {
+    return this.service.uploadMedia(id, (files ?? []) as ServiceFile[]);
+  }
+
+  /** Zmień kolejność zdjęć w galerii. */
+  @Patch(':id/media/order')
+  reorder(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: { ids: string[] },
+  ): Promise<void> {
+    return this.service.reorderMedia(id, body.ids ?? []);
+  }
+
+  /** Dodaj zdarzenie na osi czasu (z opcjonalnymi uczestnikami, np. chrzestnymi). */
+  @Post(':id/events')
+  addEvent(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: EventInput,
+  ): Promise<EventDto> {
+    return this.service.addEvent(id, body);
   }
 }

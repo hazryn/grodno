@@ -2,30 +2,47 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
   devtools: { enabled: false },
-  modules: ['@nuxtjs/tailwindcss'],
+  modules: ['@nuxtjs/tailwindcss', '@nuxtjs/i18n'],
   // Style biblioteki croppera. Lightbox wstrzykuje własne style; sort galerii = natywny DnD.
   css: ['vue-advanced-cropper/dist/style.css'],
   // Porty 52+ — bez konfliktów z innymi projektami lokalnymi.
   devServer: { port: 5200 },
+  // i18n: język w URL (prefiks dla każdego: /pl, /en, /de), domyślnie polski.
+  i18n: {
+    strategy: 'prefix',
+    defaultLocale: 'pl',
+    baseUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:5200',
+    lazy: true,
+    // Pliki w apps/web/i18n/locales/ (restructureDir = 'i18n' w v10).
+    locales: [
+      { code: 'pl', language: 'pl-PL', name: 'Polski', file: 'pl.json' },
+      { code: 'en', language: 'en-US', name: 'English', file: 'en.json' },
+      { code: 'de', language: 'de-DE', name: 'Deutsch', file: 'de.json' },
+    ],
+    // Pierwsza wizyta: wykryj język przeglądarki, fallback PL, zapamiętaj w cookie.
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'i18n_redirected',
+      redirectOn: 'root',
+      fallbackLocale: 'pl',
+    },
+    // Wyłączamy dyrektywę v-t (używamy $t/t) — bez ostrzeżeń o deprecacji.
+    bundle: { optimizeTranslationDirective: false },
+  },
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:5201/api',
       // Slug drzewa ładowanego po zalogowaniu (musi istnieć w bazie).
       treeName: process.env.NUXT_PUBLIC_TREE_NAME || 'szejna',
-      // Treści strony publicznej / branding (open source — konfigurowalne).
+      // Branding neutralny językowo (interpolowany do tłumaczeń). Treści landingu → katalogi i18n.
       appTitle: process.env.NUXT_PUBLIC_APP_TITLE || 'Rodno',
       familyName: process.env.NUXT_PUBLIC_FAMILY_NAME || '',
-      tagline: process.env.NUXT_PUBLIC_TAGLINE || 'Rodzinne drzewo genealogiczne',
-      description:
-        process.env.NUXT_PUBLIC_DESCRIPTION ||
-        'Prywatne, rodzinne drzewo genealogiczne. Dostęp wymaga potwierdzenia tożsamości.',
       contactEmail: process.env.NUXT_PUBLIC_CONTACT_EMAIL || '',
     },
   },
   app: {
     head: {
-      title: 'Rodno — drzewo rodzinne',
-      htmlAttrs: { lang: 'pl' },
+      title: 'Rodno',
       meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1' }],
     },
   },

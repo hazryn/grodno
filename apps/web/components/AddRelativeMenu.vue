@@ -7,16 +7,18 @@ const emit = defineEmits<{
   (e: 'pick', label: string): void;
 }>();
 
+const { t } = useI18n();
+
 type Opt = { label: string; tone: string; slot?: 'father' | 'mother' };
-const options: Opt[] = [
-  { label: 'Dodaj ojca', tone: 'bg-sky-100 text-sky-600', slot: 'father' },
-  { label: 'Dodaj matkę', tone: 'bg-pink-100 text-pink-600', slot: 'mother' },
-  { label: 'Dodaj brata', tone: 'bg-sky-100 text-sky-600' },
-  { label: 'Dodaj siostrę', tone: 'bg-pink-100 text-pink-600' },
-  { label: 'Dodaj partnera / partnerkę', tone: 'bg-slate-100 text-slate-500' },
-  { label: 'Dodaj syna', tone: 'bg-sky-100 text-sky-600' },
-  { label: 'Dodaj córkę', tone: 'bg-pink-100 text-pink-600' },
-];
+const options = computed<Opt[]>(() => [
+  { label: t('addRelative.father'), tone: 'bg-sky-100 text-sky-600', slot: 'father' },
+  { label: t('addRelative.mother'), tone: 'bg-pink-100 text-pink-600', slot: 'mother' },
+  { label: t('addRelative.brother'), tone: 'bg-sky-100 text-sky-600' },
+  { label: t('addRelative.sister'), tone: 'bg-pink-100 text-pink-600' },
+  { label: t('addRelative.partner'), tone: 'bg-slate-100 text-slate-500' },
+  { label: t('addRelative.son'), tone: 'bg-sky-100 text-sky-600' },
+  { label: t('addRelative.daughter'), tone: 'bg-pink-100 text-pink-600' },
+]);
 
 // Wyszarz „Dodaj ojca/matkę", gdy osoba już ma ojca/matkę.
 const isDisabled = (o: Opt): boolean =>
@@ -46,11 +48,11 @@ const popStyle = computed(() => {
         >
           <div class="flex items-center justify-between px-2 py-1">
             <span class="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-              Dodaj krewnego
+              {{ $t('addRelative.title') }}
             </span>
             <button class="rounded p-0.5 text-slate-400 hover:bg-slate-100" @click="emit('close')">✕</button>
           </div>
-          <p class="truncate px-2 pb-1.5 text-xs text-slate-500">do: {{ open?.name }}</p>
+          <p class="truncate px-2 pb-1.5 text-xs text-slate-500">{{ $t('addRelative.to', { name: open?.name }) }}</p>
           <button
             v-for="(o, i) in options"
             :key="o.label"
@@ -68,7 +70,7 @@ const popStyle = computed(() => {
               </svg>
             </span>
             <span class="text-sm text-slate-700">{{ o.label }}</span>
-            <span v-if="isDisabled(o)" class="ml-auto text-[10px] text-slate-400">już jest</span>
+            <span v-if="isDisabled(o)" class="ml-auto text-[10px] text-slate-400">{{ $t('addRelative.exists') }}</span>
           </button>
         </div>
       </Transition>

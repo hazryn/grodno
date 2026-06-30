@@ -1,21 +1,23 @@
 <script setup lang="ts">
 import type { GedcomDateValue, GedcomDateKind, SimpleDate } from '@rodno/shared';
+import { MONTH_NAMES } from '@rodno/shared';
+
+const { locale } = useI18n();
 
 /** Edytor daty genealogicznej (dzień/miesiąc/rok + modyfikator). v-model: GedcomDateValue | null. */
 const props = defineProps<{ modelValue: GedcomDateValue | null }>();
 const emit = defineEmits<{ (e: 'update:modelValue', v: GedcomDateValue | null): void }>();
 
 const KINDS: Array<{ value: GedcomDateKind; label: string }> = [
-  { value: 'exact', label: 'dokładna' },
-  { value: 'about', label: 'około (ok.)' },
-  { value: 'before', label: 'przed' },
-  { value: 'after', label: 'po' },
-  { value: 'between', label: 'między…a' },
-  { value: 'period', label: 'od…do' },
+  { value: 'exact', label: 'common.dateInput.kindExact' },
+  { value: 'about', label: 'common.dateInput.kindAbout' },
+  { value: 'before', label: 'common.dateInput.kindBefore' },
+  { value: 'after', label: 'common.dateInput.kindAfter' },
+  { value: 'between', label: 'common.dateInput.kindBetween' },
+  { value: 'period', label: 'common.dateInput.kindPeriod' },
 ];
 
 const GED_MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-const MONTHS_PL = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
 
 const kind = ref<GedcomDateKind>(props.modelValue?.kind ?? 'exact');
 const d1 = reactive<SimpleDate>({ ...(props.modelValue?.date ?? {}) });
@@ -80,40 +82,40 @@ watch([kind, d1, d2], emitValue, { deep: true });
       v-model="kind"
       class="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
     >
-      <option v-for="k in KINDS" :key="k.value" :value="k.value">{{ k.label }}</option>
+      <option v-for="k in KINDS" :key="k.value" :value="k.value">{{ $t(k.label) }}</option>
     </select>
 
     <div class="flex items-center gap-1.5">
       <input
         v-model.number="d1.day"
-        type="number" min="1" max="31" placeholder="dz."
+        type="number" min="1" max="31" :placeholder="$t('common.dateInput.day')"
         class="w-14 rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
       />
       <select v-model.number="d1.month" class="w-24 rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
-        <option :value="undefined">mies.</option>
-        <option v-for="(m, i) in MONTHS_PL" :key="i" :value="i + 1">{{ m }}</option>
+        <option :value="undefined">{{ $t('common.dateInput.month') }}</option>
+        <option v-for="(m, i) in MONTH_NAMES[locale]" :key="i" :value="i + 1">{{ m }}</option>
       </select>
       <input
         v-model.number="d1.year"
-        type="number" placeholder="rok"
+        type="number" :placeholder="$t('common.dateInput.year')"
         class="w-20 rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
       />
     </div>
 
     <div v-if="hasRange" class="flex items-center gap-1.5">
-      <span class="w-8 text-xs text-slate-400">{{ kind === 'between' ? 'a' : 'do' }}</span>
+      <span class="w-8 text-xs text-slate-400">{{ kind === 'between' ? $t('common.dateInput.rangeAnd') : $t('common.dateInput.rangeTo') }}</span>
       <input
         v-model.number="d2.day"
-        type="number" min="1" max="31" placeholder="dz."
+        type="number" min="1" max="31" :placeholder="$t('common.dateInput.day')"
         class="w-14 rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
       />
       <select v-model.number="d2.month" class="w-24 rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
-        <option :value="undefined">mies.</option>
-        <option v-for="(m, i) in MONTHS_PL" :key="i" :value="i + 1">{{ m }}</option>
+        <option :value="undefined">{{ $t('common.dateInput.month') }}</option>
+        <option v-for="(m, i) in MONTH_NAMES[locale]" :key="i" :value="i + 1">{{ m }}</option>
       </select>
       <input
         v-model.number="d2.year"
-        type="number" placeholder="rok"
+        type="number" :placeholder="$t('common.dateInput.year')"
         class="w-20 rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
       />
     </div>

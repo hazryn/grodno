@@ -4,6 +4,7 @@ export interface AuthUser {
   displayName: string;
   role: string;
   individualId: string | null;
+  locale: string;
 }
 
 export type ConfirmResult =
@@ -63,12 +64,22 @@ export function useAuth() {
     return res.user;
   }
 
+  /** Zapis preferowanego języka na koncie (PATCH /auth/me). */
+  async function updateLocale(locale: string): Promise<void> {
+    if (!token.value) return;
+    user.value = await $fetch<AuthUser>(`${base}/auth/me`, {
+      method: 'PATCH',
+      body: { locale },
+      headers: { Authorization: `Bearer ${token.value}` },
+    });
+  }
+
   /* --------------------------------- funnel dostępu --------------------------------- */
 
-  const requestAccess = (firstName: string, lastName: string, email: string) =>
+  const requestAccess = (firstName: string, lastName: string, email: string, locale: string) =>
     $fetch<{ ok: true }>(`${base}/access/request`, {
       method: 'POST',
-      body: { firstName, lastName, email },
+      body: { firstName, lastName, email, locale },
     });
 
   const confirm = (confirmToken: string, password: string) =>
@@ -95,6 +106,7 @@ export function useAuth() {
     logout,
     fetchMe,
     login,
+    updateLocale,
     requestAccess,
     confirm,
     forgot,

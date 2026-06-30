@@ -40,7 +40,7 @@ const emit = defineEmits<{ (e: 'close'): void }>();
             </slot>
             <button
               class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
-              aria-label="Zamknij"
+              :aria-label="$t('common.close')"
               @click="emit('close')"
             >
               ✕

@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import {
   EVENT_TYPE_CATALOG,
-  EVENT_CATEGORY_LABELS_PL,
-  eventTypeLabelPl,
   eventTypeHasParticipants,
   isCoupleEventType,
-  formatGedcomDatePl,
   type EventCategory,
   type EventDto,
   type GedcomDateValue,
@@ -20,18 +17,20 @@ const emit = defineEmits<{ (e: 'changed', person: IndividualDto): void }>();
 const api = useApi();
 const { success, error } = useToast();
 const { ask } = useConfirm();
+const { t } = useI18n();
+const { eventLabel, eventCategory, formatDate } = useDomainLabels();
 
 // zdarzenia pary (ślub/rozwód) są na ekranie „Dane", nie na osi czasu
 const events = ref<EventDto[]>(props.person.events.filter((e) => !isCoupleEventType(e.type)));
 watch(() => props.person.events, (v) => (events.value = v.filter((e) => !isCoupleEventType(e.type))));
 
 const ROLES: Array<{ value: string; label: string }> = [
-  { value: 'godfather', label: 'Ojciec chrzestny' },
-  { value: 'godmother', label: 'Matka chrzestna' },
-  { value: 'godparent', label: 'Chrzestny/a' },
-  { value: 'witness', label: 'Świadek' },
-  { value: 'officiant', label: 'Celebrans' },
-  { value: 'other', label: 'Inny' },
+  { value: 'godfather', label: t('timeline.roles.godfather') },
+  { value: 'godmother', label: t('timeline.roles.godmother') },
+  { value: 'godparent', label: t('timeline.roles.godparent') },
+  { value: 'witness', label: t('timeline.roles.witness') },
+  { value: 'officiant', label: t('timeline.roles.officiant') },
+  { value: 'other', label: t('timeline.roles.other') },
 ];
 const roleLabel = (r: string) => ROLES.find((x) => x.value === r)?.label ?? r;
 
@@ -43,7 +42,7 @@ const categories = computed(() => {
     if (def.category === 'family') continue; // ślub/rozwód → ekran „Dane"
     let g = groups.find((x) => x.key === def.category);
     if (!g) {
-      g = { key: def.category, label: EVENT_CATEGORY_LABELS_PL[def.category], items: [] };
+      g = { key: def.category, label: eventCategory(def.category), items: [] };
       groups.push(g);
     }
     g.items.push(def);
@@ -111,24 +110,24 @@ async function save() {
     if (editingId.value) await api.patchEvent(editingId.value, body);
     else await api.addEvent(props.person.id, body);
     await refresh();
-    success('Zapisano zdarzenie.');
+    success(t('timeline.successSave'));
     showForm.value = false;
   } catch {
-    error('Nie udało się zapisać zdarzenia.');
+    error(t('timeline.errorSave'));
   } finally {
     saving.value = false;
   }
 }
 
 async function remove(ev: EventDto) {
-  const ok = await ask({ title: 'Usunąć zdarzenie?', message: eventTypeLabelPl(ev.type), confirmLabel: 'Usuń', danger: true });
+  const ok = await ask({ title: t('timeline.confirmTitle'), message: eventLabel(ev.type), confirmLabel: t('timeline.confirmDelete'), danger: true });
   if (!ok) return;
   try {
     await api.deleteEvent(ev.id);
     await refresh();
-    success('Zdarzenie usunięte.');
+    success(t('timeline.successDelete'));
   } catch {
-    error('Nie udało się usunąć.');
+    error(t('timeline.errorDelete'));
   }
 }
 </script>
@@ -136,8 +135,8 @@ async function remove(ev: EventDto) {
 <template>
   <div class="space-y-3">
     <div class="flex items-center justify-between">
-      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Oś czasu</span>
-      <button class="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700" @click="openAdd">+ Dodaj zdarzenie</button>
+      <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ $t('timeline.title') }}</span>
+      <button class="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700" @click="openAdd">{{ $t('timeline.add') }}</button>
     </div>
 
     <ol class="relative space-y-3 border-l-2 border-slate-100 pl-5">
@@ -146,8 +145,8 @@ async function remove(ev: EventDto) {
         <div class="flex items-start justify-between gap-2">
           <div class="min-w-0">
             <div class="flex flex-wrap items-baseline gap-x-2">
-              <span class="text-sm font-medium text-slate-700">{{ eventTypeLabelPl(ev.type) }}</span>
-              <span v-if="ev.date" class="text-xs text-slate-500">{{ formatGedcomDatePl(ev.date) }}</span>
+              <span class="text-sm font-medium text-slate-700">{{ eventLabel(ev.type) }}</span>
+              <span v-if="ev.date" class="text-xs text-slate-500">{{ formatDate(ev.date) }}</span>
             </div>
             <div v-if="ev.place" class="text-xs text-slate-400">⌖ {{ ev.place.name }}</div>
             <div v-if="ev.value" class="text-xs text-slate-500">{{ ev.value }}</div>
@@ -163,62 +162,62 @@ async function remove(ev: EventDto) {
           </div>
         </div>
       </li>
-      <li v-if="!events.length" class="text-sm text-slate-400">Brak zdarzeń.</li>
+      <li v-if="!events.length" class="text-sm text-slate-400">{{ $t('timeline.empty') }}</li>
     </ol>
 
     <!-- formularz zdarzenia -->
-    <CommonModal :open="showForm" :title="editingId ? 'Edytuj zdarzenie' : 'Dodaj zdarzenie'" max-width="max-w-md" :close-on-backdrop="false" @close="showForm = false">
+    <CommonModal :open="showForm" :title="editingId ? $t('timeline.modalEdit') : $t('timeline.modalAdd')" max-width="max-w-md" :close-on-backdrop="false" @close="showForm = false">
       <div class="space-y-3 p-5">
         <label class="block">
-          <span class="mb-1 block text-xs font-medium text-slate-500">Typ</span>
+          <span class="mb-1 block text-xs font-medium text-slate-500">{{ $t('timeline.type') }}</span>
           <select v-model="fType" class="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
             <optgroup v-for="g in categories" :key="g.key" :label="g.label">
-              <option v-for="d in g.items" :key="d.tag" :value="d.tag">{{ d.labelPl }}</option>
+              <option v-for="d in g.items" :key="d.tag" :value="d.tag">{{ eventLabel(d.tag) }}</option>
             </optgroup>
           </select>
         </label>
 
         <div>
-          <span class="mb-1 block text-xs font-medium text-slate-500">Data</span>
+          <span class="mb-1 block text-xs font-medium text-slate-500">{{ $t('timeline.date') }}</span>
           <PersonGedcomDateInput v-model="fDate" />
         </div>
 
         <label class="block">
-          <span class="mb-1 block text-xs font-medium text-slate-500">Miejsce</span>
-          <input v-model="fPlace" type="text" placeholder="np. Warszawa, Mazowieckie, Polska" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
+          <span class="mb-1 block text-xs font-medium text-slate-500">{{ $t('timeline.place') }}</span>
+          <input v-model="fPlace" type="text" :placeholder="$t('timeline.placePlaceholder')" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
         </label>
 
         <label class="block">
-          <span class="mb-1 block text-xs font-medium text-slate-500">Opis / wartość</span>
-          <input v-model="fValue" type="text" placeholder="np. zawód, szkoła, szczegóły" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
+          <span class="mb-1 block text-xs font-medium text-slate-500">{{ $t('timeline.value') }}</span>
+          <input v-model="fValue" type="text" :placeholder="$t('timeline.valuePlaceholder')" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
         </label>
 
         <!-- uczestnicy (chrzestni/świadkowie) -->
         <div v-if="supportsParticipants" class="space-y-2 rounded-lg border border-slate-200 p-3">
-          <span class="block text-xs font-medium text-slate-500">Uczestnicy (chrzestni / świadkowie)</span>
+          <span class="block text-xs font-medium text-slate-500">{{ $t('timeline.participants') }}</span>
           <div v-for="(p, i) in fParticipants" :key="i" class="space-y-1.5 rounded-md bg-slate-50 p-2">
             <div class="flex items-center gap-2">
               <select v-model="p.role" class="rounded-lg border border-slate-200 px-2 py-1 text-xs">
                 <option v-for="r in ROLES" :key="r.value" :value="r.value">{{ r.label }}</option>
               </select>
-              <input v-model="p.name" type="text" placeholder="Imię i nazwisko" class="flex-1 rounded-lg border border-slate-200 px-2 py-1 text-xs" />
+              <input v-model="p.name" type="text" :placeholder="$t('timeline.participantName')" class="flex-1 rounded-lg border border-slate-200 px-2 py-1 text-xs" />
               <button class="rounded px-1.5 text-slate-400 hover:bg-slate-200" @click="removeParticipant(i)">✕</button>
             </div>
             <PersonPicker
               :tree-id="person.treeId"
-              placeholder="…lub wskaż osobę z drzewa"
+              :placeholder="$t('timeline.participantPicker')"
               @select="(sel) => { p.individualId = sel.id; p.name = sel.name; }"
             />
-            <p v-if="p.individualId" class="text-[11px] text-emerald-600">✓ powiązano z osobą w drzewie</p>
+            <p v-if="p.individualId" class="text-[11px] text-emerald-600">{{ $t('timeline.participantLinked') }}</p>
           </div>
-          <button class="text-xs font-medium text-sky-600 hover:underline" @click="addParticipant">+ dodaj uczestnika</button>
+          <button class="text-xs font-medium text-sky-600 hover:underline" @click="addParticipant">{{ $t('timeline.addParticipant') }}</button>
         </div>
       </div>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <button class="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100" @click="showForm = false">Anuluj</button>
+          <button class="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100" @click="showForm = false">{{ $t('timeline.cancel') }}</button>
           <button :disabled="saving" class="rounded-lg bg-sky-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50" @click="save">
-            {{ saving ? 'Zapisywanie…' : 'Zapisz' }}
+            {{ saving ? $t('timeline.saving') : $t('timeline.save') }}
           </button>
         </div>
       </template>

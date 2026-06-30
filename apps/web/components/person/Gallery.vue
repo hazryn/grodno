@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import VueEasyLightbox from 'vue-easy-lightbox';
-import { formatGedcomDatePl, type GedcomDateValue, type IndividualDto, type MediaDto } from '@rodno/shared';
+import { type GedcomDateValue, type IndividualDto, type MediaDto } from '@rodno/shared';
 
 /**
  * Galeria osoby. Tryby: edycja (sort/upload/opis/oznaczanie/avatar/usuwanie),
@@ -16,6 +16,8 @@ const emit = defineEmits<{ (e: 'avatar-changed', person: IndividualDto): void }>
 const api = useApi();
 const { success, error } = useToast();
 const { ask } = useConfirm();
+const { t } = useI18n();
+const { formatDate } = useDomainLabels();
 
 const items = ref<MediaDto[]>([]);
 const loading = ref(true);
@@ -57,9 +59,9 @@ async function onUpload(e: Event) {
   try {
     const created = await api.uploadMedia(props.person.id, files);
     items.value = [...items.value, ...created];
-    success(`Dodano ${created.length} zdjęć.`);
+    success(t('gallery.successUpload', created.length, { n: created.length }));
   } catch {
-    error('Nie udało się wgrać zdjęć.');
+    error(t('gallery.errorUpload'));
   } finally {
     uploading.value = false;
     (e.target as HTMLInputElement).value = '';
@@ -85,7 +87,7 @@ async function onDragEnd() {
   try {
     await api.reorderMedia(props.person.id, items.value.map((m) => m.id));
   } catch {
-    error('Nie udało się zapisać kolejności.');
+    error(t('gallery.errorReorder'));
   }
 }
 
@@ -107,10 +109,10 @@ async function saveEdit() {
       takenDate: editDate.value,
     });
     items.value = items.value.map((m) => (m.id === updated.id ? updated : m));
-    success('Zapisano opis zdjęcia.');
+    success(t('gallery.successCaption'));
     editing.value = null;
   } catch {
-    error('Nie udało się zapisać.');
+    error(t('gallery.errorCaption'));
   }
 }
 
@@ -122,18 +124,18 @@ function onTagged(updated: MediaDto) {
 function onAvatarSaved(person: IndividualDto) {
   avatarFrom.value = null;
   emit('avatar-changed', person);
-  success('Avatar ustawiony ze zdjęcia.');
+  success(t('gallery.successAvatar'));
 }
 
 async function removePhoto(m: MediaDto) {
-  const ok = await ask({ title: 'Usunąć zdjęcie?', message: 'Tej operacji nie można cofnąć.', confirmLabel: 'Usuń', danger: true });
+  const ok = await ask({ title: t('gallery.confirmTitle'), message: t('gallery.confirmMessage'), confirmLabel: t('gallery.confirmDelete'), danger: true });
   if (!ok) return;
   try {
     await api.deleteMedia(m.id);
     items.value = items.value.filter((x) => x.id !== m.id);
-    success('Zdjęcie usunięte.');
+    success(t('gallery.successDelete'));
   } catch {
-    error('Nie udało się usunąć.');
+    error(t('gallery.errorDelete'));
   }
 }
 </script>
@@ -144,12 +146,12 @@ async function removePhoto(m: MediaDto) {
     <!-- nagłówek: w pełnej galerii (readonly) niepotrzebny — tytuł daje modal -->
     <div v-if="!readonly" class="flex items-center justify-between">
       <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">
-        Galeria<span v-if="preview && items.length" class="ml-1 text-slate-300">({{ items.length }})</span>
+        {{ $t('gallery.title') }}<span v-if="preview && items.length" class="ml-1 text-slate-300">({{ items.length }})</span>
       </span>
       <!-- edycja: upload -->
       <label v-if="!isReadonly" class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700">
         <input type="file" accept="image/*" multiple class="hidden" @change="onUpload" />
-        {{ uploading ? 'Wgrywanie…' : '+ Dodaj zdjęcia' }}
+        {{ uploading ? $t('gallery.uploading') : $t('gallery.upload') }}
       </label>
       <!-- podgląd: otwórz pełną galerię -->
       <button
@@ -157,12 +159,12 @@ async function removePhoto(m: MediaDto) {
         class="text-xs font-medium text-sky-600 hover:underline"
         @click="showFull = true"
       >
-        Otwórz galerię →
+        {{ $t('gallery.openFull') }}
       </button>
     </div>
 
-    <p v-if="loading && !isReadonly" class="text-sm text-slate-400">Wczytywanie…</p>
-    <p v-else-if="!items.length && !isReadonly" class="text-sm text-slate-400">Brak zdjęć w galerii.</p>
+    <p v-if="loading && !isReadonly" class="text-sm text-slate-400">{{ $t('gallery.loading') }}</p>
+    <p v-else-if="!items.length && !isReadonly" class="text-sm text-slate-400">{{ $t('gallery.empty') }}</p>
 
     <div v-if="visibleItems.length" class="grid grid-cols-3 gap-2">
       <div
@@ -197,14 +199,14 @@ async function removePhoto(m: MediaDto) {
         </span>
         <!-- data -->
         <span v-if="m.takenDate" class="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
-          {{ formatGedcomDatePl(m.takenDate) }}
+          {{ formatDate(m.takenDate) }}
         </span>
         <!-- akcje (tylko edycja) -->
         <div v-if="!isReadonly" class="absolute inset-x-0 top-0 flex justify-end gap-1 bg-gradient-to-b from-black/50 to-transparent p-1 opacity-0 transition group-hover:opacity-100">
-          <button class="rounded bg-white/90 px-1.5 py-0.5 text-[11px] hover:bg-white" title="Opis i data" @click="openEdit(m)">✎</button>
-          <button class="rounded bg-white/90 px-1.5 py-0.5 text-[11px] hover:bg-white" title="Oznacz osoby" @click="tagging = m">◰</button>
-          <button class="rounded bg-white/90 px-1.5 py-0.5 text-[11px] hover:bg-white" title="Ustaw jako avatar" @click="avatarFrom = m">☺</button>
-          <button class="rounded bg-rose-500/90 px-1.5 py-0.5 text-[11px] text-white hover:bg-rose-600" title="Usuń" @click="removePhoto(m)">✕</button>
+          <button class="rounded bg-white/90 px-1.5 py-0.5 text-[11px] hover:bg-white" :title="$t('gallery.btnCaption')" @click="openEdit(m)">✎</button>
+          <button class="rounded bg-white/90 px-1.5 py-0.5 text-[11px] hover:bg-white" :title="$t('gallery.btnTags')" @click="tagging = m">◰</button>
+          <button class="rounded bg-white/90 px-1.5 py-0.5 text-[11px] hover:bg-white" :title="$t('gallery.btnSetAvatar')" @click="avatarFrom = m">☺</button>
+          <button class="rounded bg-rose-500/90 px-1.5 py-0.5 text-[11px] text-white hover:bg-rose-600" :title="$t('common.delete')" @click="removePhoto(m)">✕</button>
         </div>
       </div>
     </div>
@@ -214,41 +216,41 @@ async function removePhoto(m: MediaDto) {
     </ClientOnly>
 
     <!-- pełna galeria w osobnym oknie (z podglądu) -->
-    <CommonModal v-if="preview" :open="showFull" title="Galeria" max-width="max-w-3xl" @close="showFull = false">
+    <CommonModal v-if="preview" :open="showFull" :title="$t('gallery.title')" max-width="max-w-3xl" @close="showFull = false">
       <div class="p-5">
         <PersonGallery :person="person" readonly />
       </div>
     </CommonModal>
 
     <!-- edycja opisu + daty -->
-    <CommonModal :open="!!editing" title="Opis i data zdjęcia" max-width="max-w-sm" :close-on-backdrop="false" @close="editing = null">
+    <CommonModal :open="!!editing" :title="$t('gallery.editTitle')" max-width="max-w-sm" :close-on-backdrop="false" @close="editing = null">
       <div class="space-y-3 p-5">
         <label class="block">
-          <span class="mb-1 block text-xs font-medium text-slate-500">Opis</span>
+          <span class="mb-1 block text-xs font-medium text-slate-500">{{ $t('gallery.captionLabel') }}</span>
           <textarea v-model="editCaption" rows="2" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
         </label>
         <div>
-          <span class="mb-1 block text-xs font-medium text-slate-500">Data zdjęcia</span>
+          <span class="mb-1 block text-xs font-medium text-slate-500">{{ $t('gallery.dateLabel') }}</span>
           <PersonGedcomDateInput v-model="editDate" />
         </div>
       </div>
       <template #footer>
         <div class="flex justify-end gap-2">
-          <button class="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100" @click="editing = null">Anuluj</button>
-          <button class="rounded-lg bg-sky-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-sky-700" @click="saveEdit">Zapisz</button>
+          <button class="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100" @click="editing = null">{{ $t('common.cancel') }}</button>
+          <button class="rounded-lg bg-sky-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-sky-700" @click="saveEdit">{{ $t('common.save') }}</button>
         </div>
       </template>
     </CommonModal>
 
     <!-- oznaczanie osób -->
-    <CommonModal :open="!!tagging" title="Oznacz osoby na zdjęciu" max-width="max-w-2xl" :close-on-backdrop="false" @close="tagging = null">
+    <CommonModal :open="!!tagging" :title="$t('gallery.tagModalTitle')" max-width="max-w-2xl" :close-on-backdrop="false" @close="tagging = null">
       <div class="p-5">
         <PersonPhotoTagger v-if="tagging" :media="tagging" :tree-id="person.treeId" @saved="onTagged" @close="tagging = null" />
       </div>
     </CommonModal>
 
     <!-- avatar ze zdjęcia galerii -->
-    <CommonModal :open="!!avatarFrom" title="Ustaw avatar ze zdjęcia" max-width="max-w-lg" :close-on-backdrop="false" @close="avatarFrom = null">
+    <CommonModal :open="!!avatarFrom" :title="$t('gallery.avatarModalTitle')" max-width="max-w-lg" :close-on-backdrop="false" @close="avatarFrom = null">
       <div class="p-5">
         <PersonAvatarEditor v-if="avatarFrom" :person="person" :src="avatarFrom.url" @saved="onAvatarSaved" @cancel="avatarFrom = null" />
       </div>

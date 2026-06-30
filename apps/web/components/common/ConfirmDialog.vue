@@ -1,5 +1,6 @@
 <script setup lang="ts">
 /** Host potwierdzeń (zamiast window.confirm). Montowany raz w app.vue. Tag: <CommonConfirmDialog>. */
+const { t } = useI18n();
 const { state, settle } = useConfirm();
 </script>
 
@@ -20,14 +21,14 @@ const { state, settle } = useConfirm();
           class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
           @click="settle(false)"
         >
-          {{ state.cancelLabel || 'Anuluj' }}
+          {{ state.cancelLabel || $t('common.cancel') }}
         </button>
         <button
           class="rounded-lg px-3 py-1.5 text-sm font-medium text-white"
           :class="state.danger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-sky-600 hover:bg-sky-700'"
           @click="settle(true)"
         >
-          {{ state.confirmLabel || 'OK' }}
+          {{ state.confirmLabel || $t('common.ok') }}
         </button>
       </div>
     </template>

@@ -36,7 +36,7 @@ function pick(id: string) {
     <input
       v-model="q"
       type="text"
-      placeholder="Szukaj osoby…"
+      :placeholder="$t('search.placeholder')"
       class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
       @focus="open = results.length > 0"
     />
@@ -62,7 +62,7 @@ function pick(id: string) {
       v-else-if="open && q.trim().length >= 2"
       class="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-400 shadow-xl"
     >
-      Brak wyników.
+      {{ $t('search.noResults') }}
     </div>
   </div>
 </template>

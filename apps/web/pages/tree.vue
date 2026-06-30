@@ -4,6 +4,9 @@ import type { TreeSummary } from '../composables/useApi';
 
 definePageMeta({ middleware: 'auth' });
 
+const { t } = useI18n();
+const localePath = useLocalePath();
+
 const api = useApi();
 const route = useRoute();
 const router = useRouter();
@@ -78,7 +81,11 @@ function showToast(msg: string) {
 }
 function onAddParent({ slot, forId }: { forId: string; slot: 'father' | 'mother' }) {
   const who = graph.cards.get(forId)?.name ?? 'osoby';
-  showToast(`Dodawanie ${slot === 'father' ? 'ojca' : 'matki'} dla „${who}" — edycja w fazie 2.`);
+  showToast(
+    slot === 'father'
+      ? t('tree.toastAddParentFather', { name: who })
+      : t('tree.toastAddParentMother', { name: who }),
+  );
 }
 
 const addMenu = ref<
@@ -102,7 +109,7 @@ async function openAddMenu(p: { id: string; name: string; x: number; y: number }
 function onAddRelative(label: string) {
   const who = addMenu.value?.name ?? 'osoby';
   addMenu.value = null;
-  showToast(`${label} (dla „${who}") — edycja w fazie 2.`);
+  showToast(t('tree.toastAddRelative', { label, name: who }));
 }
 
 onMounted(async () => {
@@ -121,10 +128,10 @@ onMounted(async () => {
         }
       }
     } else {
-      error.value = 'Drzewo jest puste — uruchom import GEDCOM.';
+      error.value = t('tree.errorEmpty');
     }
   } catch (e) {
-    error.value = 'Nie mogę połączyć się z API. Czy backend działa?';
+    error.value = t('tree.errorApi');
   } finally {
     loading.value = false;
   }
@@ -147,7 +154,7 @@ async function onPersonChanged(id: string) {
 
 async function onLogout() {
   logout();
-  await navigateTo('/login');
+  await navigateTo(localePath('/login'));
 }
 </script>
 
@@ -160,7 +167,7 @@ async function onLogout() {
           <span class="text-amber-500">{{ appTitle }}</span>
         </h1>
         <span v-if="tree" class="text-sm text-slate-400">
-          drzewo „{{ familyName || tree.name }}" · {{ tree.individualCount }} osób
+          {{ $t('tree.treeLabel', { name: familyName || tree.name }) }} · {{ $t('common.peopleCount', tree.individualCount, { n: tree.individualCount }) }}
         </span>
       </div>
       <div class="flex items-center gap-3">
@@ -170,31 +177,38 @@ async function onLogout() {
             :class="displayMode === 'sheet' ? 'bg-amber-100 text-amber-700' : 'text-slate-500 hover:bg-slate-50'"
             @click="displayMode = 'sheet'"
           >
-            Panel
+            {{ $t('tree.displayPanel') }}
           </button>
           <button
             class="rounded-md px-2.5 py-1 transition"
             :class="displayMode === 'modal' ? 'bg-amber-100 text-amber-700' : 'text-slate-500 hover:bg-slate-50'"
             @click="displayMode = 'modal'"
           >
-            Okno
+            {{ $t('tree.displayModal') }}
           </button>
         </div>
         <SearchBox v-if="tree" :tree-id="tree.id" @select="(id) => focusOn(id, true)" />
         <NuxtLink
           v-if="isAdmin"
-          to="/admin/users"
+          :to="localePath('/admin/users')"
           class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-50"
         >
-          Konta
+          {{ $t('tree.accounts') }}
         </NuxtLink>
         <div class="flex items-center gap-2 border-l border-slate-200 pl-3">
           <span class="hidden text-sm text-slate-500 sm:inline">{{ user?.displayName }}</span>
+          <CommonLanguageSwitcher />
+          <NuxtLink
+            :to="localePath('/settings')"
+            class="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100"
+          >
+            {{ $t('tree.settings') }}
+          </NuxtLink>
           <button
             class="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100"
             @click="onLogout"
           >
-            Wyloguj
+            {{ $t('tree.logout') }}
           </button>
         </div>
       </div>
@@ -203,7 +217,7 @@ async function onLogout() {
     <!-- tree -->
     <main class="relative flex-1 overflow-hidden">
       <div v-if="loading" class="flex h-full items-center justify-center text-slate-400">
-        Wczytywanie drzewa…
+        {{ $t('tree.loading') }}
       </div>
       <div v-else-if="error" class="flex h-full items-center justify-center">
         <div class="max-w-md rounded-xl border border-amber-200 bg-amber-50 px-6 py-4 text-center text-sm text-amber-800">
@@ -227,12 +241,12 @@ async function onLogout() {
 
       <!-- legenda -->
       <div class="pointer-events-none absolute left-4 top-4 rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-500 shadow-sm backdrop-blur">
-        <div class="mb-1 font-medium text-slate-600">Sterowanie</div>
-        <div>Klik kafelka → szczegóły · dwuklik → centruj</div>
-        <div>▲ / ▼ → rozwiń rodziców / dzieci · scroll → zoom</div>
+        <div class="mb-1 font-medium text-slate-600">{{ $t('tree.legend.title') }}</div>
+        <div>{{ $t('tree.legend.line1') }}</div>
+        <div>{{ $t('tree.legend.line2') }}</div>
         <div class="mt-1.5 flex items-center gap-3 border-t border-slate-100 pt-1.5">
-          <span class="flex items-center gap-1"><span class="inline-block h-[3px] w-4 rounded" style="background:#e11d48"></span> ślub</span>
-          <span class="flex items-center gap-1"><span class="inline-block h-[3px] w-4 rounded" style="background:#0d9488"></span> partner</span>
+          <span class="flex items-center gap-1"><span class="inline-block h-[3px] w-4 rounded" style="background:#e11d48"></span> {{ $t('tree.legend.married') }}</span>
+          <span class="flex items-center gap-1"><span class="inline-block h-[3px] w-4 rounded" style="background:#0d9488"></span> {{ $t('tree.legend.partner') }}</span>
         </div>
       </div>
     </main>

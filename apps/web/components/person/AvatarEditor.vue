@@ -10,6 +10,7 @@ const circleStencil = markRaw(CircleStencil);
 const props = defineProps<{ person: IndividualDto; src?: string | null }>();
 const emit = defineEmits<{ (e: 'saved', person: IndividualDto): void; (e: 'cancel'): void }>();
 
+const { t } = useI18n();
 const api = useApi();
 const { success, error } = useToast();
 
@@ -49,10 +50,10 @@ async function confirm() {
   try {
     const blob = await blobFromCanvas(canvas);
     const updated = await api.uploadAvatar(props.person.id, blob, 'avatar.jpg');
-    success('Avatar zaktualizowany.');
+    success(t('avatar.success'));
     emit('saved', updated);
   } catch {
-    error('Nie udało się zapisać avatara.');
+    error(t('avatar.error'));
   } finally {
     saving.value = false;
   }
@@ -101,20 +102,20 @@ onBeforeUnmount(() => {
         <path d="M12 16V4m0 0L8 8m4-4 4 4" />
         <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
       </svg>
-      <p class="text-sm font-medium">Przeciągnij zdjęcie tutaj</p>
-      <p class="text-xs">lub kliknij, aby wybrać z dysku</p>
+      <p class="text-sm font-medium">{{ $t('avatar.dragHere') }}</p>
+      <p class="text-xs">{{ $t('avatar.clickToPick') }}</p>
     </div>
 
-    <p v-if="!image" class="text-xs text-slate-400">Możesz też użyć „Ustaw jako avatar" przy zdjęciu w galerii.</p>
+    <p v-if="!image" class="text-xs text-slate-400">{{ $t('avatar.galleryNote') }}</p>
 
     <div class="flex justify-end gap-2">
-      <button class="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100" @click="emit('cancel')">Anuluj</button>
+      <button class="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100" @click="emit('cancel')">{{ $t('avatar.cancel') }}</button>
       <button
         :disabled="!image || saving"
         class="rounded-lg bg-sky-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
         @click="confirm"
       >
-        {{ saving ? 'Zapisywanie…' : 'Zapisz avatar' }}
+        {{ saving ? $t('avatar.saving') : $t('avatar.save') }}
       </button>
     </div>
   </div>

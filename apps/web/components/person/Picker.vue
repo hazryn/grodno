@@ -37,7 +37,7 @@ function pick(p: PersonCard) {
     <input
       v-model="q"
       type="text"
-      :placeholder="placeholder || 'Szukaj osoby…'"
+      :placeholder="placeholder || $t('picker.placeholder')"
       class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-sky-400 focus:outline-none"
       @focus="open = results.length > 0"
     />

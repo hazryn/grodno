@@ -7,6 +7,7 @@ const emit = defineEmits<{ (e: 'saved', media: MediaDto): void; (e: 'close'): vo
 
 const api = useApi();
 const { success, error } = useToast();
+const { t } = useI18n();
 
 type DraftTag = Partial<MediaTagDto> & { x: number; y: number; w: number; h: number };
 const tags = ref<DraftTag[]>(props.media.tags.map((t) => ({ ...t })));
@@ -94,10 +95,10 @@ async function save() {
       h: t.h,
     }));
     const updated = await api.putMediaTags(props.media.id, payload);
-    success('Oznaczenia zapisane.');
+    success(t('tagger.success'));
     emit('saved', updated);
   } catch {
-    error('Nie udało się zapisać oznaczeń.');
+    error(t('tagger.error'));
   } finally {
     saving.value = false;
   }
@@ -106,7 +107,7 @@ async function save() {
 
 <template>
   <div class="space-y-3">
-    <p class="text-xs text-slate-500">Przeciągnij po zdjęciu, aby narysować kwadracik, potem przypisz osobę.</p>
+    <p class="text-xs text-slate-500">{{ $t('tagger.instruction') }}</p>
     <div
       ref="surface"
       class="relative select-none touch-none overflow-hidden rounded-xl bg-slate-900"
@@ -125,7 +126,7 @@ async function save() {
         :style="boxStyle(t)"
       >
         <span class="absolute -top-6 left-0 whitespace-nowrap rounded bg-sky-500 px-1.5 py-0.5 text-[11px] text-white">
-          {{ t.name || 'bez nazwy' }}
+          {{ t.name || $t('tagger.unnamed') }}
         </span>
         <button
           class="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[11px] text-white"
@@ -139,28 +140,28 @@ async function save() {
 
     <!-- przypisanie osoby do aktywnego boxa -->
     <div v-if="activeIndex !== null" class="rounded-lg border border-slate-200 p-3">
-      <p class="mb-2 text-xs font-medium text-slate-500">Kogo oznaczasz?</p>
-      <PersonPicker :tree-id="treeId" placeholder="Szukaj w drzewie…" @select="(p) => assign(activeIndex!, { id: p.id, name: p.name })" />
+      <p class="mb-2 text-xs font-medium text-slate-500">{{ $t('tagger.who') }}</p>
+      <PersonPicker :tree-id="treeId" :placeholder="$t('tagger.whoSearch')" @select="(p) => assign(activeIndex!, { id: p.id, name: p.name })" />
       <div class="mt-2 flex items-center gap-2">
-        <span class="text-xs text-slate-400">lub wpisz nazwę:</span>
+        <span class="text-xs text-slate-400">{{ $t('tagger.whoManual') }}</span>
         <input
           type="text"
           class="flex-1 rounded-lg border border-slate-200 px-2 py-1 text-sm"
-          placeholder="Imię i nazwisko"
+          :placeholder="$t('tagger.whoManualPlaceholder')"
           @input="setName(activeIndex!, ($event.target as HTMLInputElement).value)"
         />
-        <button class="text-xs text-sky-600 hover:underline" @click="activeIndex = null">gotowe</button>
+        <button class="text-xs text-sky-600 hover:underline" @click="activeIndex = null">{{ $t('tagger.doneTag') }}</button>
       </div>
     </div>
 
     <div class="flex justify-end gap-2">
-      <button class="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100" @click="emit('close')">Zamknij</button>
+      <button class="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100" @click="emit('close')">{{ $t('tagger.close') }}</button>
       <button
         :disabled="saving"
         class="rounded-lg bg-sky-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
         @click="save"
       >
-        {{ saving ? 'Zapisywanie…' : 'Zapisz oznaczenia' }}
+        {{ saving ? $t('tagger.saving') : $t('tagger.save') }}
       </button>
     </div>
   </div>

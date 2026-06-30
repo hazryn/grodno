@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { votoLabel, type IndividualDto, type PersonName, type Sex } from '@rodno/shared';
+import { type IndividualDto, type PersonName, type Sex } from '@rodno/shared';
 
 /** Edycja danych osoby. `section` wybiera zakres pól (taby w panelu). Tag: <PersonEditForm>. */
 const props = withDefaults(
@@ -10,6 +10,8 @@ const emit = defineEmits<{ (e: 'saved', person: IndividualDto): void }>();
 
 const api = useApi();
 const { success, error } = useToast();
+const { t } = useI18n();
+const { voto } = useDomainLabels();
 
 const primary = props.person.names[0] ?? { type: 'birth', given: '', surname: '', full: '' };
 const given = ref(primary.given ?? '');
@@ -28,9 +30,9 @@ const emails = ref<string[]>([...props.person.emails]);
 const saving = ref(false);
 
 const SEXES: Array<{ value: Sex; label: string }> = [
-  { value: 'M', label: 'Mężczyzna' },
-  { value: 'F', label: 'Kobieta' },
-  { value: 'U', label: 'Nieznana' },
+  { value: 'M', label: t('editForm.sexMale') },
+  { value: 'F', label: t('editForm.sexFemale') },
+  { value: 'U', label: t('editForm.sexUnknown') },
 ];
 
 function addEmail() {
@@ -91,10 +93,10 @@ async function save() {
       };
     }
     const updated = await api.updateIndividual(props.person.id, patch);
-    success('Zapisano dane osoby.');
+    success(t('editForm.success'));
     emit('saved', updated);
   } catch {
-    error('Nie udało się zapisać.');
+    error(t('editForm.error'));
   } finally {
     saving.value = false;
   }
@@ -106,31 +108,31 @@ async function save() {
     <template v-if="section === 'basic'">
       <div class="grid grid-cols-2 gap-3">
         <label class="block">
-          <span class="mb-1 block text-xs font-medium text-slate-500">Imię</span>
+          <span class="mb-1 block text-xs font-medium text-slate-500">{{ $t('editForm.firstName') }}</span>
           <input v-model="given" type="text" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
         </label>
         <label class="block">
-          <span class="mb-1 block text-xs font-medium text-slate-500">Nazwisko</span>
+          <span class="mb-1 block text-xs font-medium text-slate-500">{{ $t('editForm.lastName') }}</span>
           <input v-model="surname" type="text" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
         </label>
       </div>
 
       <div>
-        <span class="mb-1 block text-xs font-medium text-slate-500">Nazwiska po ślubie</span>
+        <span class="mb-1 block text-xs font-medium text-slate-500">{{ $t('editForm.marriedSurnames') }}</span>
         <div class="space-y-2">
           <div v-for="(_, i) in marriedSurnames" :key="i" class="flex items-center gap-2">
-            <span v-if="marriedSurnames.length > 1" class="w-28 shrink-0 text-right text-xs text-slate-400">{{ votoLabel(i) }}</span>
-            <input v-model="marriedSurnames[i]" type="text" placeholder="nazwisko" class="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
+            <span v-if="marriedSurnames.length > 1" class="w-28 shrink-0 text-right text-xs text-slate-400">{{ voto(i) }}</span>
+            <input v-model="marriedSurnames[i]" type="text" :placeholder="$t('editForm.surnamePlaceholder')" class="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
             <button type="button" class="rounded-lg px-2 text-slate-400 hover:bg-slate-100" @click="removeMarried(i)">✕</button>
           </div>
           <button v-if="marriedSurnames.length < 4" type="button" class="text-xs font-medium text-sky-600 hover:underline" @click="addMarried">
-            + dodaj nazwisko po ślubie
+            {{ $t('editForm.addMarriedSurname') }}
           </button>
         </div>
       </div>
 
       <div>
-        <span class="mb-1 block text-xs font-medium text-slate-500">Płeć</span>
+        <span class="mb-1 block text-xs font-medium text-slate-500">{{ $t('editForm.sex') }}</span>
         <div class="flex gap-2">
           <button
             v-for="s in SEXES"
@@ -146,22 +148,22 @@ async function save() {
       </div>
 
       <label class="block">
-        <span class="mb-1 block text-xs font-medium text-slate-500">Nota biograficzna</span>
+        <span class="mb-1 block text-xs font-medium text-slate-500">{{ $t('editForm.bio') }}</span>
         <textarea v-model="bio" rows="5" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
       </label>
     </template>
 
     <template v-else>
       <div class="space-y-2">
-        <span class="block text-xs font-medium text-slate-500">Profile społecznościowe</span>
-        <input v-model="facebookUrl" type="url" placeholder="Facebook URL" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
-        <input v-model="linkedinUrl" type="url" placeholder="LinkedIn URL" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
-        <input v-model="instagramUrl" type="url" placeholder="Instagram URL" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
-        <input v-model="xUrl" type="url" placeholder="X (Twitter) URL" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
+        <span class="block text-xs font-medium text-slate-500">{{ $t('editForm.socialProfiles') }}</span>
+        <input v-model="facebookUrl" type="url" :placeholder="$t('editForm.facebookUrl')" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
+        <input v-model="linkedinUrl" type="url" :placeholder="$t('editForm.linkedinUrl')" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
+        <input v-model="instagramUrl" type="url" :placeholder="$t('editForm.instagramUrl')" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
+        <input v-model="xUrl" type="url" :placeholder="$t('editForm.xUrl')" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
       </div>
 
       <div class="space-y-2">
-        <span class="block text-xs font-medium text-slate-500">E-maile</span>
+        <span class="block text-xs font-medium text-slate-500">{{ $t('editForm.emails') }}</span>
         <div
           v-for="(_, i) in emails"
           :key="i"
@@ -172,15 +174,15 @@ async function save() {
         >
           <span
             class="cursor-move select-none text-slate-300 hover:text-slate-500"
-            title="Przeciągnij, by zmienić kolejność"
+            :title="$t('editForm.dragToReorder')"
             draggable="true"
             @dragstart="eDragStart(i)"
             @dragend="eDragEnd"
           >⠿</span>
-          <input v-model="emails[i]" type="email" placeholder="adres@e-mail" class="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
+          <input v-model="emails[i]" type="email" :placeholder="$t('editForm.emailPlaceholder')" class="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
           <button type="button" class="rounded-lg px-2 text-slate-400 hover:bg-slate-100" @click="removeEmail(i)">✕</button>
         </div>
-        <button type="button" class="text-xs font-medium text-sky-600 hover:underline" @click="addEmail">+ dodaj e-mail</button>
+        <button type="button" class="text-xs font-medium text-sky-600 hover:underline" @click="addEmail">{{ $t('editForm.addEmail') }}</button>
       </div>
     </template>
 
@@ -190,7 +192,7 @@ async function save() {
         :disabled="saving"
         class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50"
       >
-        {{ saving ? 'Zapisywanie…' : 'Zapisz' }}
+        {{ saving ? $t('editForm.saving') : $t('editForm.save') }}
       </button>
     </div>
   </form>

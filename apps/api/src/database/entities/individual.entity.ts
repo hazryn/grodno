@@ -7,7 +7,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import type { GedcomDateValue, PersonName, Sex, WorkExperience } from '@rodno/shared';
+import type { GedcomDateValue, PersonName, Sex, WebLink, WorkExperience } from '@rodno/shared';
 
 /**
  * Osoba. Pola zdarzeń urodzenia/śmierci są zdenormalizowane (rok, miejsce, foto)
@@ -78,12 +78,19 @@ export class Individual {
   @Column({ type: 'varchar', nullable: true })
   photoUrl: string | null;
 
+  /** Notka biograficzna (wolny tekst). */
+  @Column({ type: 'text', nullable: true })
+  bio: string | null;
+
   /** Kontakt / social (z GEDCOM: _LINKEDIN, _X/_TWITTER, EMAIL). */
   @Column({ type: 'varchar', nullable: true })
   linkedinUrl: string | null;
 
   @Column({ type: 'varchar', nullable: true })
   xUrl: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  facebookUrl: string | null;
 
   /** Wiele e-maili na osobę. */
   @Column({ type: 'jsonb', default: () => "'[]'" })
@@ -92,6 +99,10 @@ export class Individual {
   /** Doświadczenie zawodowe (z OCCU: stanowisko, firma AGNC, okres, logo). */
   @Column({ type: 'jsonb', default: () => "'[]'" })
   experience: WorkExperience[];
+
+  /** Linki zewnętrzne (z GEDCOM _LINK/WWW): nekrologi, strony pamięci, Grobonet, Find a Grave. */
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  links: WebLink[];
 
   /** Zdenormalizowane flagi grafu do przycisków +/− w drzewie. */
   @Column({ default: false })

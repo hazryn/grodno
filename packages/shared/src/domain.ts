@@ -33,6 +33,26 @@ export interface PersonName {
   full: string;
 }
 
+/** Rola uczestnika zdarzenia (chrzestni przy chrzcie, świadkowie przy ślubie itp.). */
+export type EventParticipantRole =
+  | 'godparent'
+  | 'godfather'
+  | 'godmother'
+  | 'witness'
+  | 'officiant'
+  | 'other';
+
+/** Uczestnik zdarzenia — powiązanie osoba↔osoba (np. chrzestny) z fallbackiem na wolny tekst. */
+export interface EventParticipantDto {
+  id: string;
+  /** Powiązana osoba w drzewie (klikalna) lub null, gdy tylko nazwa tekstowa. */
+  individualId: string | null;
+  /** Nazwa do wyświetlenia, gdy osoby nie ma w drzewie (lub uzupełnienie). */
+  name: string | null;
+  role: EventParticipantRole;
+  sortOrder: number;
+}
+
 export interface EventDto {
   id: string;
   ownerType: EventOwnerType;
@@ -42,6 +62,21 @@ export interface EventDto {
   place: PlaceDto | null;
   /** Wolny tekst (np. zawód przy OCCU, opis). */
   value: string | null;
+  /** Uczestnicy (np. chrzestni przy BAPM/CHR). Puste dla większości zdarzeń. */
+  participants: EventParticipantDto[];
+}
+
+/** Oznaczenie osoby na zdjęciu ("kwadracik"). Współrzędne znormalizowane 0..1. */
+export interface MediaTagDto {
+  id: string;
+  mediaId: string;
+  /** Oznaczona osoba (klikalna → profil) lub null, gdy tylko nazwa tekstowa. */
+  individualId: string | null;
+  name: string | null;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 export interface MediaDto {
@@ -49,8 +84,20 @@ export interface MediaDto {
   title: string | null;
   filename: string | null;
   format: string | null;
-  /** URL miniatury (S3/MinIO docelowo; w POC = referencja z GEDCOM). */
+  /** Presigned URL do MinIO/S3 (z `storageKey`); w starym imporcie = referencja GEDCOM. */
   url: string | null;
+  /** Opis zdjęcia. */
+  caption: string | null;
+  /** Data wykonania zdjęcia (typ GEDCOM — bywa przybliżona). */
+  takenDate: GedcomDateValue | null;
+  width: number | null;
+  height: number | null;
+  /** Ręczna kolejność w galerii (drag-sort). */
+  sortOrder: number;
+  /** Avatar — wykluczany z galerii. */
+  isAvatar: boolean;
+  /** Oznaczenia osób na zdjęciu. */
+  tags: MediaTagDto[];
 }
 
 export interface SourceDto {
@@ -101,6 +148,7 @@ export interface IndividualDto {
   linkedinUrl: string | null;
   xUrl: string | null;
   facebookUrl: string | null;
+  instagramUrl: string | null;
   emails: string[];
   /** Doświadczenie zawodowe (styl LinkedIn). */
   experience: WorkExperience[];

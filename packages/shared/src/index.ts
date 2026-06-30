@@ -16,7 +16,10 @@ export type {
   PedigreeType,
   PlaceDto,
   PersonName,
+  EventParticipantRole,
+  EventParticipantDto,
   EventDto,
+  MediaTagDto,
   MediaDto,
   SourceDto,
   WorkExperience,
@@ -24,5 +27,15 @@ export type {
   IndividualDto,
   FamilyDto,
 } from './domain.js';
+
+export {
+  EVENT_TYPE_CATALOG,
+  EVENT_CATEGORY_LABELS_PL,
+  eventTypeLabelPl,
+  eventTypeHasParticipants,
+} from './event-types.js';
+export type { EventCategory, EventTypeDef } from './event-types.js';
+
+export { formatPersonName, votoLabel, VOTO_LABELS } from './person-name.js';
 
 export type { PersonCard, Bundle, BundlePayload, SpouseRelation, Union } from './bundle.js';

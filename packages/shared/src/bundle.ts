@@ -15,6 +15,8 @@ export interface PersonCard {
   id: string;
   xref: string;
   name: string;
+  /** Nazwa do wyświetlenia z nazwiskami po ślubie, np. „Oliwia Szejna (zd. Czech)". */
+  displayName: string;
   sex: Sex;
   /** Rok urodzenia (string, bo bywa "ok."/częściowy) lub null. */
   birth: string | null;

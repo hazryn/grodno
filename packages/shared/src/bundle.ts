@@ -28,6 +28,8 @@ export interface PersonCard {
   photoUrl: string | null;
   /** Link do profilu LinkedIn (badge na kafelku), jeśli podany. */
   linkedinUrl: string | null;
+  /** Link do profilu Facebook (badge na kafelku), jeśli podany. */
+  facebookUrl: string | null;
   /** Czy WIEMY, że osoba zmarła (wstążka żałobna). Różne od !isLiving (nieznany ≠ zmarły). */
   deceased: boolean;
   /** Czy osoba ma rodziców → przycisk "rozwiń w górę". */

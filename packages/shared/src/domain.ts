@@ -73,6 +73,13 @@ export interface WorkExperience {
   logoUrl: string | null;
 }
 
+/** Link zewnętrzny (nekrolog, strona pamięci, Grobonet, Find a Grave itp.). Źródło: GEDCOM _LINK/WWW. */
+export interface WebLink {
+  /** Etykieta do wyświetlenia (z _LINK › TITL) lub null → front pokaże domenę. */
+  label: string | null;
+  url: string;
+}
+
 export interface IndividualDto {
   id: string;
   treeId: string;
@@ -88,12 +95,17 @@ export interface IndividualDto {
   events: EventDto[];
   media: MediaDto[];
   photoUrl: string | null;
+  /** Notka biograficzna (wolny tekst). */
+  bio: string | null;
   /** Kontakt / social. E-maili może być wiele. */
   linkedinUrl: string | null;
   xUrl: string | null;
+  facebookUrl: string | null;
   emails: string[];
   /** Doświadczenie zawodowe (styl LinkedIn). */
   experience: WorkExperience[];
+  /** Linki zewnętrzne: nekrologi, strony pamięci, Grobonet, Find a Grave itp. */
+  links: WebLink[];
 }
 
 export interface FamilyDto {

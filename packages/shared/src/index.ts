@@ -20,6 +20,7 @@ export type {
   MediaDto,
   SourceDto,
   WorkExperience,
+  WebLink,
   IndividualDto,
   FamilyDto,
 } from './domain.js';

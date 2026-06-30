@@ -21,6 +21,7 @@ export type {
   EventDto,
   MediaTagDto,
   MediaDto,
+  MarriageDto,
   SourceDto,
   WorkExperience,
   WebLink,
@@ -33,9 +34,10 @@ export {
   EVENT_CATEGORY_LABELS_PL,
   eventTypeLabelPl,
   eventTypeHasParticipants,
+  isCoupleEventType,
 } from './event-types.js';
 export type { EventCategory, EventTypeDef } from './event-types.js';
 
-export { formatPersonName, votoLabel, VOTO_LABELS } from './person-name.js';
+export { formatPersonName, votoLabel, femaleSurname, VOTO_LABELS } from './person-name.js';
 
 export type { PersonCard, Bundle, BundlePayload, SpouseRelation, Union } from './bundle.js';

@@ -93,3 +93,8 @@ export function eventTypeLabelPl(tag: string): string {
 export function eventTypeHasParticipants(tag: string): boolean {
   return BY_TAG[tag]?.participants ?? false;
 }
+
+/** Zdarzenia pary (ślub/rozwód/zaręczyny…) — edytowane na ekranie „Dane", nie na osi czasu. */
+export function isCoupleEventType(tag: string): boolean {
+  return BY_TAG[tag]?.category === 'family';
+}

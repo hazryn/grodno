@@ -11,6 +11,20 @@ export function votoLabel(i: number): string {
 }
 
 /**
+ * Żeńska forma nazwiska męża (nazwisko po ślubie kobiety): adjektywne
+ * -ski/-cki/-dzki → -ska/-cka/-dzka; nazwiska niezmienne (Nowak, Szejna, niepolskie)
+ * zostają. Złożone/wielowyrazowe (np. „Boos Schroeder") → null (do ręcznej edycji).
+ */
+export function femaleSurname(surname: string | null | undefined): string | null {
+  const s = (surname ?? '').trim();
+  if (!s || /\s/.test(s)) return null;
+  if (s.endsWith('dzki')) return s.slice(0, -4) + 'dzka';
+  if (s.endsWith('cki')) return s.slice(0, -3) + 'cka';
+  if (s.endsWith('ski')) return s.slice(0, -3) + 'ska';
+  return s;
+}
+
+/**
  * Wyświetlana nazwa osoby z uwzględnieniem nazwisk po ślubie:
  * - bez ślubu → pełne nazwisko z urodzenia,
  * - jedno po ślubie → „Imię NazwiskoPoŚlubie (zd. NazwiskoRodowe)",

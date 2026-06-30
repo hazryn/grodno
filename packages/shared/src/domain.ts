@@ -127,6 +127,20 @@ export interface WebLink {
   url: string;
 }
 
+/** Małżeństwo/związek osoby — edytowane na ekranie „Dane" (jak w MyHeritage). */
+export interface MarriageDto {
+  partnershipId: string;
+  /** Małżonek (osoba z drzewa) lub null. */
+  spouseId: string | null;
+  spouseName: string | null;
+  /** 'married' (ślub) | 'partner' (związek nieformalny). */
+  type: string;
+  date: GedcomDateValue | null;
+  placeName: string | null;
+  /** Presigned URL zdjęcia ślubu. */
+  photoUrl: string | null;
+}
+
 export interface IndividualDto {
   id: string;
   treeId: string;
@@ -154,6 +168,8 @@ export interface IndividualDto {
   experience: WorkExperience[];
   /** Linki zewnętrzne: nekrologi, strony pamięci, Grobonet, Find a Grave itp. */
   links: WebLink[];
+  /** Małżeństwa/związki (ekran „Dane") — data, miejsce, zdjęcie, małżonek. */
+  marriages: MarriageDto[];
 }
 
 export interface FamilyDto {

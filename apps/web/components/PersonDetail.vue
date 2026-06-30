@@ -1,20 +1,43 @@
 <script setup lang="ts">
-import { formatGedcomDatePl, type IndividualDto, type EventDto, type WorkExperience } from '@rodno/shared';
+import VueEasyLightbox from 'vue-easy-lightbox';
+import { eventTypeLabelPl, formatGedcomDatePl, type IndividualDto, type EventDto, type WorkExperience } from '@rodno/shared';
 
 const props = defineProps<{ individualId: string | null }>();
 const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'recenter', id: string): void;
+  (e: 'changed', id: string): void;
 }>();
 
 const api = useApi();
 const data = ref<IndividualDto | null>(null);
 const loading = ref(false);
+const editing = ref(false);
+const avatarModal = ref(false);
+const avatarLb = ref(false); // lightbox powiększenia avatara
+
+type EditTab = 'basic' | 'contact' | 'timeline' | 'gallery';
+const editTab = ref<EditTab>('basic');
+const EDIT_TABS: Array<{ key: EditTab; label: string }> = [
+  { key: 'basic', label: 'Dane' },
+  { key: 'contact', label: 'Kontakt' },
+  { key: 'timeline', label: 'Oś czasu' },
+  { key: 'gallery', label: 'Galeria' },
+];
+// Ikony (stroke) per zakładka — pasek kompaktowy, jedna linia.
+const TAB_ICONS: Record<EditTab, string[]> = {
+  basic: ['M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', 'M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6'],
+  contact: ['M4 6h16v12H4z', 'm4 8 8 5 8-5'],
+  timeline: ['M12 8v4.5l3 1.8', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'],
+  gallery: ['M4 5h16v14H4z', 'M9 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z', 'm5 18 5-5 4 4 2-2 3 3'],
+};
 
 watch(
   () => props.individualId,
   async (id) => {
     data.value = null;
+    editing.value = false;
+    editTab.value = 'basic';
     if (!id) return;
     loading.value = true;
     try {
@@ -27,14 +50,22 @@ watch(
   { immediate: true },
 );
 
-const EVENT_LABELS: Record<string, string> = {
-  BIRT: 'Urodziny', DEAT: 'Zgon', BURI: 'Pogrzeb', CREM: 'Kremacja',
-  BAPM: 'Chrzest', CHR: 'Chrzest', MARR: 'Ślub', DIV: 'Rozwód',
-  RESI: 'Zamieszkanie', OCCU: 'Zawód', EDUC: 'Edukacja', GRAD: 'Ukończenie szkoły',
-  RETI: 'Emerytura', CENS: 'Spis ludności', IMMI: 'Imigracja', EMIG: 'Emigracja',
-  NATU: 'Naturalizacja', RELI: 'Religia', DSCR: 'Opis', EVEN: 'Wydarzenie',
+/** Aktualizuje lokalny stan po edycji i informuje rodzica (odświeżenie kafelka w drzewie). */
+function onUpdated(updated: IndividualDto) {
+  data.value = updated;
+  emit('changed', updated.id);
+}
+function onAvatarSaved(updated: IndividualDto) {
+  avatarModal.value = false;
+  onUpdated(updated);
+}
+
+const eventLabel = (e: EventDto) => eventTypeLabelPl(e.type);
+const ROLE_LABELS: Record<string, string> = {
+  godfather: 'Ojciec chrzestny', godmother: 'Matka chrzestna', godparent: 'Chrzestny/a',
+  witness: 'Świadek', officiant: 'Celebrans', other: 'Uczestnik',
 };
-const eventLabel = (e: EventDto) => EVENT_LABELS[e.type] ?? e.type;
+const roleLabel = (r: string) => ROLE_LABELS[r] ?? r;
 const linkLabel = (l: { label: string | null; url: string }) => {
   if (l.label) return l.label;
   try { return new URL(l.url).hostname.replace(/^www\./, ''); } catch { return l.url; }
@@ -68,12 +99,27 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
     <template v-else-if="data">
       <!-- nagłówek -->
       <div class="flex items-start gap-4 border-b border-slate-100 p-5">
-        <div
-          class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full text-lg font-bold"
-          :class="data.sex === 'M' ? 'bg-sky-200 text-sky-800' : data.sex === 'F' ? 'bg-pink-200 text-pink-800' : 'bg-slate-200 text-slate-700'"
-        >
-          <img v-if="data.photoUrl" :src="data.photoUrl" :alt="data.primaryName" class="h-full w-full object-cover" />
-          <span v-else>{{ initials(data.primaryName) }}</span>
+        <div class="relative shrink-0">
+          <div
+            class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full text-lg font-bold"
+            :class="data.sex === 'M' ? 'bg-sky-200 text-sky-800' : data.sex === 'F' ? 'bg-pink-200 text-pink-800' : 'bg-slate-200 text-slate-700'"
+          >
+            <img
+              v-if="data.photoUrl"
+              :src="data.photoUrl"
+              :alt="data.primaryName"
+              class="h-full w-full object-cover"
+              :class="{ 'cursor-zoom-in': !editing }"
+              @click="!editing && (avatarLb = true)"
+            />
+            <span v-else>{{ initials(data.primaryName) }}</span>
+          </div>
+          <button
+            v-if="editing"
+            class="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-sky-600 text-xs text-white shadow hover:bg-sky-700"
+            title="Zmień avatar"
+            @click="avatarModal = true"
+          >✎</button>
         </div>
         <div class="min-w-0 flex-1">
           <h2 class="text-xl font-bold text-slate-800">{{ data.primaryName }}</h2>
@@ -86,7 +132,7 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
             także: {{ data.names.slice(1).map((n) => n.full).join(', ') }}
           </p>
           <!-- kontakt / social -->
-          <div v-if="data.linkedinUrl || data.xUrl || data.facebookUrl || data.emails.length" class="mt-2 flex flex-wrap items-center gap-1.5">
+          <div v-if="data.linkedinUrl || data.xUrl || data.facebookUrl || data.instagramUrl || data.emails.length" class="mt-2 flex flex-wrap items-center gap-1.5">
             <a
               v-if="data.facebookUrl"
               :href="data.facebookUrl"
@@ -121,6 +167,17 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
               X
             </a>
             <a
+              v-if="data.instagramUrl"
+              :href="data.instagramUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-1 rounded-md bg-gradient-to-tr from-amber-500 via-pink-600 to-purple-600 px-2 py-1 text-xs font-medium text-white transition hover:brightness-110"
+              title="Profil Instagram"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" class="h-3.5 w-3.5"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41a3.7 3.7 0 01-1.38-.9 3.7 3.7 0 01-.9-1.38c-.16-.42-.36-1.06-.41-2.23C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16zm0 1.62c-3.15 0-3.52.01-4.76.07-.99.04-1.53.21-1.88.35-.47.18-.81.4-1.17.76-.36.36-.58.7-.76 1.17-.14.35-.31.89-.35 1.88-.06 1.24-.07 1.61-.07 4.76s.01 3.52.07 4.76c.04.99.21 1.53.35 1.88.18.47.4.81.76 1.17.36.36.7.58 1.17.76.35.14.89.31 1.88.35 1.24.06 1.61.07 4.76.07s3.52-.01 4.76-.07c.99-.04 1.53-.21 1.88-.35.47-.18.81-.4 1.17-.76.36-.36.58-.7.76-1.17.14-.35.31-.89.35-1.88.06-1.24.07-1.61.07-4.76s-.01-3.52-.07-4.76c-.04-.99-.21-1.53-.35-1.88a3.15 3.15 0 00-.76-1.17 3.15 3.15 0 00-1.17-.76c-.35-.14-.89-.31-1.88-.35-1.24-.06-1.61-.07-4.76-.07zm0 2.76a5.46 5.46 0 110 10.92 5.46 5.46 0 010-10.92zm0 9a3.54 3.54 0 100-7.08 3.54 3.54 0 000 7.08zm6.95-9.22a1.27 1.27 0 11-2.55 0 1.27 1.27 0 012.55 0z"/></svg>
+              Instagram
+            </a>
+            <a
               v-for="m in data.emails"
               :key="m"
               :href="`mailto:${m}`"
@@ -132,11 +189,44 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
             </a>
           </div>
         </div>
-        <button class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" @click="emit('close')">✕</button>
+        <div class="flex shrink-0 items-center gap-1">
+          <button
+            class="rounded-lg px-2.5 py-1.5 text-sm font-medium transition"
+            :class="editing ? 'bg-sky-600 text-white hover:bg-sky-700' : 'text-sky-700 hover:bg-sky-50'"
+            @click="editing = !editing"
+          >
+            {{ editing ? 'Gotowe' : 'Edytuj' }}
+          </button>
+          <button class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" @click="emit('close')">✕</button>
+        </div>
       </div>
 
-      <!-- treść przewijalna: bio + doświadczenie + oś czasu -->
-      <div class="flex-1 space-y-6 overflow-y-auto p-5">
+      <!-- TRYB EDYCJI: taby -->
+      <div v-if="editing" class="flex min-h-0 flex-1 flex-col">
+        <nav class="grid shrink-0 grid-cols-4 border-b border-slate-100">
+          <button
+            v-for="t in EDIT_TABS"
+            :key="t.key"
+            class="flex flex-col items-center gap-1 border-b-2 py-2 text-[11px] font-medium transition"
+            :class="editTab === t.key ? 'border-sky-500 text-sky-700' : 'border-transparent text-slate-400 hover:bg-slate-50 hover:text-slate-600'"
+            @click="editTab = t.key"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+              <path v-for="(d, i) in TAB_ICONS[t.key]" :key="i" :d="d" />
+            </svg>
+            <span>{{ t.label }}</span>
+          </button>
+        </nav>
+        <div class="flex-1 overflow-y-auto p-5">
+          <PersonEditForm v-if="editTab === 'basic'" :person="data" section="basic" @saved="onUpdated" />
+          <PersonEditForm v-else-if="editTab === 'contact'" :person="data" section="contact" @saved="onUpdated" />
+          <PersonTimelineEditor v-else-if="editTab === 'timeline'" :person="data" @changed="onUpdated" />
+          <PersonGallery v-else-if="editTab === 'gallery'" :person="data" @avatar-changed="onUpdated" />
+        </div>
+      </div>
+
+      <!-- TRYB PODGLĄDU: bio + doświadczenie + oś czasu -->
+      <div v-else class="flex-1 space-y-6 overflow-y-auto p-5">
         <!-- nota biograficzna -->
         <section v-if="data.bio">
           <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">O osobie</h3>
@@ -185,6 +275,9 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
           </ul>
         </section>
 
+        <!-- galeria (podgląd: max 2 rzędy + „Otwórz galerię") -->
+        <PersonGallery :person="data" preview />
+
         <!-- oś czasu -->
         <section>
           <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Oś czasu</h3>
@@ -197,6 +290,17 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
               </div>
               <div v-if="ev.place" class="text-xs text-slate-400">⌖ {{ ev.place.name }}</div>
               <div v-if="ev.value" class="text-xs text-slate-500">{{ ev.value }}</div>
+              <ul v-if="ev.participants.length" class="mt-0.5 space-y-0.5">
+                <li v-for="p in ev.participants" :key="p.id" class="text-xs text-slate-500">
+                  <span class="text-slate-400">{{ roleLabel(p.role) }}:</span>
+                  <button
+                    v-if="p.individualId"
+                    class="ml-1 text-sky-700 hover:underline"
+                    @click="emit('recenter', p.individualId)"
+                  >{{ p.name || '—' }}</button>
+                  <span v-else class="ml-1">{{ p.name || '—' }}</span>
+                </li>
+              </ul>
             </li>
             <li v-if="!data.events.length" class="text-sm text-slate-400">Brak zdarzeń.</li>
           </ol>
@@ -213,6 +317,18 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
           ⌖ Centruj w drzewie
         </button>
       </div>
+
+      <!-- powiększenie avatara -->
+      <ClientOnly>
+        <VueEasyLightbox :visible="avatarLb" :imgs="data.photoUrl ? [data.photoUrl] : []" @hide="avatarLb = false" />
+      </ClientOnly>
+
+      <!-- modal zmiany avatara (z dysku) -->
+      <CommonModal :open="avatarModal" title="Zmień avatar" max-width="max-w-lg" :close-on-backdrop="false" @close="avatarModal = false">
+        <div class="p-5">
+          <PersonAvatarEditor :person="data" @saved="onAvatarSaved" @cancel="avatarModal = false" />
+        </div>
+      </CommonModal>
     </template>
   </div>
 </template>

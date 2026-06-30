@@ -3,6 +3,7 @@ defineProps<{ individualId: string | null }>();
 const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'recenter', id: string): void;
+  (e: 'changed', id: string): void;
 }>();
 </script>
 
@@ -23,6 +24,7 @@ const emit = defineEmits<{
               :individual-id="individualId"
               @close="emit('close')"
               @recenter="(id) => emit('recenter', id)"
+              @changed="(id) => emit('changed', id)"
             />
           </div>
         </Transition>

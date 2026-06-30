@@ -3,6 +3,8 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
   devtools: { enabled: false },
   modules: ['@nuxtjs/tailwindcss'],
+  // Style biblioteki croppera. Lightbox wstrzykuje własne style; sort galerii = natywny DnD.
+  css: ['vue-advanced-cropper/dist/style.css'],
   // Porty 52+ — bez konfliktów z innymi projektami lokalnymi.
   devServer: { port: 5200 },
   runtimeConfig: {

@@ -87,6 +87,12 @@ importers:
       '@rodno/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      vue-advanced-cropper:
+        specifier: ^2.8.9
+        version: 2.8.9(vue@3.5.38(typescript@5.9.3))
+      vue-easy-lightbox:
+        specifier: ^1.19.0
+        version: 1.19.0(vue@3.5.38(typescript@5.9.3))
     devDependencies:
       '@nuxtjs/tailwindcss':
         specifier: ^6.13.1
@@ -2391,6 +2397,9 @@ packages:
   class-validator@0.14.4:
     resolution: {integrity: sha512-AwNusCCam51q703dW82x95tOqQp6oC9HNUl724KxJJOfnKscI8dOloXFgyez7LbTTKWuRBA37FScqVbJEoq8Yw==}
 
+  classnames@2.5.1:
+    resolution: {integrity: sha512-saHYOzhIQs6wy2sVxTM6bUDsQO4F50V9RQ22qBpEdCW+I+/Wmke2HOl6lS6dTpdxVhb88/I6+Hs+438c3lfUow==}
+
   cli-cursor@3.1.0:
     resolution: {integrity: sha512-I/zHAwsKf9FqGoXM4WWRACob9+SNukZTd94DWF57E4toouRulbCxcUh6RKUEOQlYTHJnzkPMySvPNaaSLNfLZw==}
     engines: {node: '>=8'}
@@ -2644,6 +2653,9 @@ packages:
       sqlite3:
         optional: true
 
+  debounce@1.2.1:
+    resolution: {integrity: sha512-XRRe6Glud4rd/ZGQfiV1ruXSfbvfJedlV9Y6zOlP+2K04vBYiJEte6stfFkCP03aMnY5tsipamumUjL14fofug==}
+
   debug@3.2.7:
     resolution: {integrity: sha512-CFjzYYAi4ThfiQvizrFQevTTXHtnCqWfe7x1AhgEscTz6ZbLbfoLRLPugTQyBth6f8ZERVUSyWHFD/7Wu4t1XQ==}
     peerDependencies:
@@ -2779,6 +2791,9 @@ packages:
 
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
+
+  easy-bem@1.1.1:
+    resolution: {integrity: sha512-GJRqdiy2h+EXy6a8E6R+ubmqUM08BK0FWNq41k24fup6045biQ8NXxoXimiwegMQvFFV3t1emADdGNL1TlS61A==}
 
   ecdsa-sig-formatter@1.0.11:
     resolution: {integrity: sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ==}
@@ -5201,11 +5216,23 @@ packages:
   vscode-uri@3.1.0:
     resolution: {integrity: sha512-/BpdSx+yCQGnCvecbyXdxHDkuk55/G3xwnC0GqY4gmQ3j+A+g8kzzgB4Nk/SINjqn6+waqw3EgbVF2QKExkRxQ==}
 
+  vue-advanced-cropper@2.8.9:
+    resolution: {integrity: sha512-1jc5gO674kVGpJKekoaol6ZlwaF5VYDLSBwBOUpViW0IOrrRsyLw6XNszjEqgbavvqinlKNS6Kqlom3B5M72Tw==}
+    engines: {node: '>=8', npm: '>=5'}
+    peerDependencies:
+      vue: ^3.0.0
+
   vue-bundle-renderer@2.3.1:
     resolution: {integrity: sha512-7F4LNMopUw5RgYWo4zCmVUHCc6aQRC6dCKHUYkM/n+fux4AUGdL1x6m5A515WWyFysRRN7cx3hBzVqoisfRfzw==}
 
   vue-devtools-stub@0.1.0:
     resolution: {integrity: sha512-RutnB7X8c5hjq39NceArgXg28WZtZpGc3+J16ljMiYnFhKvd8hITxSWQSQ5bvldxMDU6gG5mkxl1MTQLXckVSQ==}
+
+  vue-easy-lightbox@1.19.0:
+    resolution: {integrity: sha512-YxLXgjEn91UF3DuK1y8u3Pyx2sJ7a/MnBpkyrBSQkvU1glzEJASyAZ7N+5yDpmxBQDVMwCsL2VmxWGIiFrWCgA==}
+    engines: {node: '>=14.18.3'}
+    peerDependencies:
+      vue: ^3.0.0
 
   vue-router@4.6.4:
     resolution: {integrity: sha512-Hz9q5sa33Yhduglwz6g9skT8OBPii+4bFn88w6J+J4MfEo4KRRpmiNG/hHHkdbRFlLBOqxN8y8gf2Fb0MTUgVg==}
@@ -7659,6 +7686,8 @@ snapshots:
       libphonenumber-js: 1.13.7
       validator: 13.15.35
 
+  classnames@2.5.1: {}
+
   cli-cursor@3.1.0:
     dependencies:
       restore-cursor: 3.1.0
@@ -7885,6 +7914,8 @@ snapshots:
 
   db0@0.3.4: {}
 
+  debounce@1.2.1: {}
+
   debug@3.2.7:
     dependencies:
       ms: 2.1.3
@@ -7983,6 +8014,8 @@ snapshots:
   duplexer@0.1.2: {}
 
   eastasianwidth@0.2.0: {}
+
+  easy-bem@1.1.1: {}
 
   ecdsa-sig-formatter@1.0.11:
     dependencies:
@@ -10707,11 +10740,22 @@ snapshots:
 
   vscode-uri@3.1.0: {}
 
+  vue-advanced-cropper@2.8.9(vue@3.5.38(typescript@5.9.3)):
+    dependencies:
+      classnames: 2.5.1
+      debounce: 1.2.1
+      easy-bem: 1.1.1
+      vue: 3.5.38(typescript@5.9.3)
+
   vue-bundle-renderer@2.3.1:
     dependencies:
       ufo: 1.6.4
 
   vue-devtools-stub@0.1.0: {}
+
+  vue-easy-lightbox@1.19.0(vue@3.5.38(typescript@5.9.3)):
+    dependencies:
+      vue: 3.5.38(typescript@5.9.3)
 
   vue-router@4.6.4(vue@3.5.38(typescript@5.9.3)):
     dependencies:

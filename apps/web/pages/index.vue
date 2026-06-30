@@ -126,6 +126,16 @@ function onRecenter(id: string) {
   modalId.value = null;
   focusOn(id, true);
 }
+
+/** Po edycji osoby — odśwież jej kafelek (imię/avatar/lifespan) w drzewie. */
+async function onPersonChanged(id: string) {
+  try {
+    graph.ingestBundle(await api.bundle(id));
+    relayout();
+  } catch {
+    /* ignoruj — kafelek odświeży się przy następnym dociągnięciu */
+  }
+}
 </script>
 
 <template>
@@ -203,12 +213,14 @@ function onRecenter(id: string) {
       :individual-id="modalId"
       @close="modalId = null"
       @recenter="onRecenter"
+      @changed="onPersonChanged"
     />
     <PersonModal
       v-else
       :individual-id="modalId"
       @close="modalId = null"
       @recenter="onRecenter"
+      @changed="onPersonChanged"
     />
 
     <AddRelativeMenu :open="addMenu" @close="addMenu = null" @pick="onAddRelative" />

@@ -54,7 +54,7 @@ function pick(id: string) {
           class="h-2 w-2 shrink-0 rounded-full"
           :class="r.sex === 'M' ? 'bg-sky-400' : r.sex === 'F' ? 'bg-pink-400' : 'bg-slate-400'"
         ></span>
-        <span class="min-w-0 flex-1 truncate text-sm text-slate-700">{{ r.name }}</span>
+        <span class="min-w-0 flex-1 truncate text-sm text-slate-700">{{ r.displayName || r.name }}</span>
         <span class="shrink-0 text-xs text-slate-400">{{ r.lifespan || '' }}</span>
       </button>
     </div>

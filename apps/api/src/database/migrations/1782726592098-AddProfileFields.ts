@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class AddProfileFields1782500000000 implements MigrationInterface {
-    name = 'AddProfileFields1782500000000'
+export class AddProfileFields1782726592098 implements MigrationInterface {
+    name = 'AddProfileFields1782726592098'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`ALTER TABLE "individuals" ADD "linkedinUrl" character varying`);

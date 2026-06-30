@@ -31,6 +31,11 @@ export class Event {
   @Column({ type: 'uuid', nullable: true })
   familyId: string | null;
 
+  /** Właściciel-para dla zdarzeń rodzinnych (MARR, DIV) w modelu krawędziowym. */
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  partnershipId: string | null;
+
   /** Tag GEDCOM: BIRT, DEAT, MARR, DIV, RESI, OCCU, EVEN, ... */
   @Column()
   type: string;

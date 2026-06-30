@@ -14,22 +14,24 @@ import type {
 } from '@rodno/shared';
 import {
   Event,
-  Family,
-  FamilyChild,
   Individual,
   Media,
+  ParentChild,
+  Partnership,
   Place,
 } from '../database/entities';
+import { MediaService } from '../media/media.service';
 
 @Injectable()
 export class IndividualsService {
   constructor(
     @InjectRepository(Individual) private readonly indiRepo: Repository<Individual>,
-    @InjectRepository(Family) private readonly famRepo: Repository<Family>,
-    @InjectRepository(FamilyChild) private readonly fcRepo: Repository<FamilyChild>,
+    @InjectRepository(ParentChild) private readonly pcRepo: Repository<ParentChild>,
+    @InjectRepository(Partnership) private readonly partnerRepo: Repository<Partnership>,
     @InjectRepository(Event) private readonly eventRepo: Repository<Event>,
     @InjectRepository(Media) private readonly mediaRepo: Repository<Media>,
     @InjectRepository(Place) private readonly placeRepo: Repository<Place>,
+    private readonly media: MediaService,
   ) {}
 
   /* ------------------------------- kafelek/bundle ------------------------------- */
@@ -45,8 +47,9 @@ export class IndividualsService {
       lifespan: indi.lifespan,
       birthplace: indi.birthPlaceTown,
       birthplaceFull: indi.birthPlaceFull,
-      photoUrl: indi.photoUrl,
+      photoUrl: this.media.presign(indi.photoUrl),
       linkedinUrl: indi.linkedinUrl,
+      facebookUrl: indi.facebookUrl,
       deceased: indi.deceased,
       hasParents: indi.hasParents,
       childCount: indi.childCount,
@@ -68,10 +71,25 @@ export class IndividualsService {
       .filter((x): x is Individual => x !== undefined);
   }
 
+  /** Rozdziela krawędzie-rodziców osoby na ojca/matkę (rola, z fallbackiem dla 'parent'). */
+  private async resolveParents(
+    childId: string,
+  ): Promise<{ fatherId: string | null; motherId: string | null }> {
+    const edges = await this.pcRepo.find({ where: { childId } });
+    let fatherId = edges.find((e) => e.parentRole === 'father')?.parentId ?? null;
+    let motherId = edges.find((e) => e.parentRole === 'mother')?.parentId ?? null;
+    // Rola 'parent' (nieokreślona) → wypełnij wolny slot.
+    for (const e of edges.filter((e) => e.parentRole === 'parent')) {
+      if (!fatherId) fatherId = e.parentId;
+      else if (!motherId && e.parentId !== fatherId) motherId = e.parentId;
+    }
+    return { fatherId, motherId };
+  }
+
   /**
-   * Buduje bundle osoby + zwraca encje sąsiadów (do rekurencji w payload, bez ponownych zapytań).
-   * Port logiki sprawdzonego modułu webtrees: rodzice z rodziny rodzicielskiej,
-   * małżonek + dzieci z PIERWSZEJ rodziny małżeńskiej, opcjonalnie rodzeństwo.
+   * Buduje bundle osoby z modelu KRAWĘDZIOWEGO (parent_child + partnerships):
+   * rodzice z krawędzi childId=indi; związki = partnerstwa ∪ współrodzice wyprowadzeni
+   * z dzieci; rodzeństwo = pełne (wspólni rodzice). Kontrakt `unions` jak dotąd.
    */
   private async buildBundle(
     indi: Individual,
@@ -84,64 +102,108 @@ export class IndividualsService {
     childEnts: Individual[];
     siblingEnts: Individual[];
   }> {
-    let father: Individual | null = null;
-    let mother: Individual | null = null;
+    // --- rodzice ---
+    const { fatherId, motherId } = await this.resolveParents(indi.id);
+    const father = await this.loadIndi(fatherId);
+    const mother = await this.loadIndi(motherId);
+
+    // --- rodzeństwo pełne (te same krawędzie rodziców) ---
     let siblingEnts: Individual[] = [];
-
-    const childFc = await this.fcRepo.findOne({
-      where: { childId: indi.id },
-      order: { sortOrder: 'ASC' },
-    });
-    if (childFc) {
-      const fam = await this.famRepo.findOne({ where: { id: childFc.familyId } });
-      if (fam) {
-        father = await this.loadIndi(fam.husbandId);
-        mother = await this.loadIndi(fam.wifeId);
-        if (withSiblings) {
-          const sibFcs = await this.fcRepo.find({
-            where: { familyId: fam.id },
-            order: { sortOrder: 'ASC' },
-          });
-          const sibIds = sibFcs
-            .map((s) => s.childId)
-            .filter((cid) => cid !== indi.id);
-          siblingEnts = await this.loadOrdered(sibIds);
-        }
-      }
-    }
-
-    // WSZYSTKIE związki osoby (mąż/żona, potem partner itd.), każdy ze swoimi dziećmi.
-    const spouseFams = await this.famRepo.find({
-      where: [{ husbandId: indi.id }, { wifeId: indi.id }],
-      order: { createdAt: 'ASC' },
-    });
-    const unions: Union[] = [];
-    const childEnts: Individual[] = []; // wszystkie dzieci (do trawersacji payloadu)
-    const seenChild = new Set<string>();
-    let spouse: Individual | null = null;
-    for (let i = 0; i < spouseFams.length; i++) {
-      const fam = spouseFams[i]!;
-      const spId = fam.husbandId === indi.id ? fam.wifeId : fam.husbandId;
-      const sp = await this.loadIndi(spId);
-      if (i === 0) spouse = sp;
-      const childFcs = await this.fcRepo.find({
-        where: { familyId: fam.id },
+    if (withSiblings && (fatherId || motherId)) {
+      const primaryId = fatherId ?? motherId!;
+      const otherId = fatherId ? motherId : null;
+      const primEdges = await this.pcRepo.find({
+        where: { parentId: primaryId },
         order: { sortOrder: 'ASC' },
       });
-      const unionChildren = await this.loadOrdered(childFcs.map((c) => c.childId));
-      for (const c of unionChildren) {
+      let sibIds = primEdges.map((e) => e.childId).filter((cid) => cid !== indi.id);
+      if (otherId) {
+        const otherEdges = await this.pcRepo.find({ where: { parentId: otherId } });
+        const otherSet = new Set(otherEdges.map((e) => e.childId));
+        sibIds = sibIds.filter((cid) => otherSet.has(cid)); // pełne rodzeństwo
+      }
+      siblingEnts = await this.loadOrdered(sibIds);
+    }
+
+    // --- dzieci indi + współrodzic każdego dziecka ---
+    const childEdges = await this.pcRepo.find({
+      where: { parentId: indi.id },
+      order: { sortOrder: 'ASC' },
+    });
+    const childIds = childEdges.map((e) => e.childId);
+    const coParentByChild = new Map<string, string | null>();
+    if (childIds.length) {
+      const allEdges = await this.pcRepo.find({ where: { childId: In(childIds) } });
+      const parentsByChild = new Map<string, string[]>();
+      for (const e of allEdges) {
+        const arr = parentsByChild.get(e.childId) ?? [];
+        arr.push(e.parentId);
+        parentsByChild.set(e.childId, arr);
+      }
+      for (const cid of childIds) {
+        const co = (parentsByChild.get(cid) ?? []).find((p) => p !== indi.id) ?? null;
+        coParentByChild.set(cid, co);
+      }
+    }
+    const childrenByCoParent = new Map<string | null, string[]>();
+    for (const cid of childIds) {
+      const co = coParentByChild.get(cid) ?? null;
+      const arr = childrenByCoParent.get(co) ?? [];
+      arr.push(cid);
+      childrenByCoParent.set(co, arr);
+    }
+
+    // --- partnerstwa (kolejność związków + typ) ---
+    const partnerships = await this.partnerRepo.find({
+      where: [{ partnerAId: indi.id }, { partnerBId: indi.id }],
+      order: { sortOrder: 'ASC', createdAt: 'ASC' },
+    });
+    const relBySpouse = new Map<string, SpouseRelation>();
+    const unionSpouseIds: (string | null)[] = [];
+    for (const p of partnerships) {
+      const sid = p.partnerAId === indi.id ? p.partnerBId : p.partnerAId;
+      if (sid && !unionSpouseIds.includes(sid)) {
+        unionSpouseIds.push(sid);
+        relBySpouse.set(sid, p.type);
+      }
+    }
+    // współrodzice z dzieci, których nie objęło partnerstwo
+    for (const co of childrenByCoParent.keys()) {
+      if (co !== null && !unionSpouseIds.includes(co)) unionSpouseIds.push(co);
+    }
+    if (childrenByCoParent.has(null)) unionSpouseIds.push(null); // dzieci bez 2. rodzica
+
+    // --- załaduj osoby i zbuduj unie ---
+    const childById = new Map(
+      (await this.loadOrdered(childIds)).map((c) => [c.id, c]),
+    );
+    const spouseById = new Map(
+      (await this.loadOrdered(
+        unionSpouseIds.filter((x): x is string => !!x),
+      )).map((s) => [s.id, s]),
+    );
+
+    const unions: Union[] = [];
+    const childEnts: Individual[] = [];
+    const seenChild = new Set<string>();
+    let spouse: Individual | null = null;
+    for (let i = 0; i < unionSpouseIds.length; i++) {
+      const sid = unionSpouseIds[i];
+      const sp = sid ? spouseById.get(sid) ?? null : null;
+      if (i === 0) spouse = sp;
+      const kidEnts = (childrenByCoParent.get(sid) ?? [])
+        .map((id) => childById.get(id))
+        .filter((x): x is Individual => !!x);
+      for (const c of kidEnts) {
         if (!seenChild.has(c.id)) {
           seenChild.add(c.id);
           childEnts.push(c);
         }
       }
-      const marr = await this.eventRepo.findOne({
-        where: { familyId: fam.id, type: 'MARR' },
-      });
       unions.push({
         spouse: sp ? this.toCard(sp) : null,
-        relation: sp ? (marr ? 'married' : 'partner') : null,
-        children: unionChildren.map((c) => this.toCard(c)),
+        relation: sp ? relBySpouse.get(sp.id) ?? 'partner' : null,
+        children: kidEnts.map((c) => this.toCard(c)),
       });
     }
     const spouseRelation: SpouseRelation | null = unions[0]?.relation ?? null;
@@ -281,7 +343,7 @@ export class IndividualsService {
           title: m.title,
           filename: m.filename,
           format: m.format,
-          url: null,
+          url: this.media.presign(m.filename),
         });
       }
     }
@@ -298,11 +360,14 @@ export class IndividualsService {
       death,
       events: eventDtos,
       media,
-      photoUrl: indi.photoUrl,
+      photoUrl: this.media.presign(indi.photoUrl),
+      bio: indi.bio ?? null,
       linkedinUrl: indi.linkedinUrl,
       xUrl: indi.xUrl,
+      facebookUrl: indi.facebookUrl,
       emails: indi.emails ?? [],
       experience: indi.experience ?? [],
+      links: indi.links ?? [],
     };
   }
 

@@ -1,10 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import {
+  adminNewRequestCopy,
+  approvedCopy,
+  mailFallbackHint,
+  mailTreeLabel,
+  normalizeMailLocale,
+  resetCopy,
+  verifyCopy,
+  type MailCopy,
+  type MailLocale,
+} from './i18n';
 
 /**
  * Wysyłka maili (nodemailer). Wszystko konfigurowalne z ENV (projekt open source):
- * SMTP_*, MAIL_FROM, APP_NAME, FAMILY_NAME, APP_PUBLIC_URL, ADMIN_NOTIFY_EMAIL.
+ * SMTP_*, MAIL_FROM, APP_NAME, FAMILY_NAME, APP_PUBLIC_URL, ADMIN_NOTIFY_EMAIL, DEFAULT_LOCALE.
+ * Treści w 3 językach (mail/i18n.ts); linki niosą prefiks języka (/pl, /en, /de).
  * Bez SMTP_HOST → tryb dev: zamiast wysyłać, logujemy treść + link do konsoli.
  */
 @Injectable()
@@ -33,11 +45,6 @@ export class MailService {
     return process.env.FAMILY_NAME ?? '';
   }
 
-  /** „drzewo rodziny Szejna" lub fallback bez nazwiska. */
-  private get treeLabel(): string {
-    return this.familyName ? `drzewo rodziny ${this.familyName}` : `${this.appName} — drzewo rodzinne`;
-  }
-
   private get webBase(): string {
     return (process.env.APP_PUBLIC_URL ?? 'http://localhost:5200').replace(/\/$/, '');
   }
@@ -46,36 +53,35 @@ export class MailService {
     return process.env.MAIL_FROM ?? `${this.appName} <no-reply@rodno.local>`;
   }
 
+  private get adminLocale(): MailLocale {
+    return normalizeMailLocale(process.env.DEFAULT_LOCALE);
+  }
+
   get adminNotifyAddress(): string | null {
     return process.env.ADMIN_NOTIFY_EMAIL ?? process.env.SEED_ADMIN_EMAIL ?? null;
   }
 
-  confirmLink(token: string): string {
-    return `${this.webBase}/auth/confirm?token=${encodeURIComponent(token)}`;
+  private treeLabel(locale: MailLocale): string {
+    return mailTreeLabel(locale, this.familyName, this.appName);
   }
 
-  resetLink(token: string): string {
-    return `${this.webBase}/auth/reset?token=${encodeURIComponent(token)}`;
+  confirmLink(token: string, locale: MailLocale): string {
+    return `${this.webBase}/${locale}/auth/confirm?token=${encodeURIComponent(token)}`;
   }
 
-  loginLink(): string {
-    return `${this.webBase}/login`;
+  resetLink(token: string, locale: MailLocale): string {
+    return `${this.webBase}/${locale}/auth/reset?token=${encodeURIComponent(token)}`;
+  }
+
+  loginLink(locale: MailLocale): string {
+    return `${this.webBase}/${locale}/login`;
   }
 
   /** Link weryfikacyjny po prośbie o dostęp — ustawienie hasła i (jeśli dopasowano) wejście do drzewa. */
-  async sendVerify(to: string, token: string): Promise<void> {
-    const link = this.confirmLink(token);
-    await this.send(
-      to,
-      `Potwierdź dostęp do ${this.treeLabel}`,
-      this.shell(
-        'Potwierdź swój adres e-mail',
-        `<p>Poproszono o dostęp do <strong>${this.treeLabel}</strong> dla tego adresu.</p>
-         <p>Kliknij poniżej, aby potwierdzić e-mail i ustawić hasło.</p>`,
-        'Potwierdź i ustaw hasło',
-        link,
-      ),
-    );
+  async sendVerify(to: string, token: string, locale: string): Promise<void> {
+    const l = normalizeMailLocale(locale);
+    const copy = verifyCopy(l, this.treeLabel(l));
+    await this.deliver(to, copy, this.confirmLink(token, l), l);
   }
 
   /** Mail do administratora: ktoś poprosił o dostęp, a maila nie ma w drzewie. */
@@ -89,76 +95,51 @@ export class MailService {
       this.logger.warn('Brak ADMIN_NOTIFY_EMAIL — pomijam powiadomienie admina o prośbie o dostęp.');
       return;
     }
+    const l = this.adminLocale;
     const name = [requester.firstName, requester.lastName].filter(Boolean).join(' ') || '(brak)';
-    await this.send(
-      to,
-      `Nowa prośba o dostęp do ${this.treeLabel}`,
-      this.shell(
-        'Nowa prośba o dostęp',
-        `<p>Osoba spoza drzewa poprosiła o dostęp:</p>
-         <p><strong>${name}</strong><br>${requester.email}</p>
-         <p>Przypisz ją do osoby w drzewie w panelu administracyjnym, aby aktywować konto.</p>`,
-        'Panel administracyjny',
-        `${this.webBase}/admin/users`,
-      ),
-    );
+    const copy = adminNewRequestCopy(l, this.treeLabel(l), name, requester.email);
+    await this.deliver(to, copy, `${this.webBase}/${l}/admin/users`, l);
   }
 
   /** Mail do osoby po przypisaniu jej do osoby w drzewie przez admina. */
-  async sendApproved(to: string): Promise<void> {
-    await this.send(
-      to,
-      `Masz już dostęp do ${this.treeLabel}`,
-      this.shell(
-        'Konto aktywowane',
-        `<p>Administrator przyznał Ci dostęp do <strong>${this.treeLabel}</strong>.</p>
-         <p>Możesz się już zalogować swoim adresem e-mail i hasłem.</p>`,
-        'Zaloguj się',
-        this.loginLink(),
-      ),
-    );
+  async sendApproved(to: string, locale: string): Promise<void> {
+    const l = normalizeMailLocale(locale);
+    const copy = approvedCopy(l, this.treeLabel(l));
+    await this.deliver(to, copy, this.loginLink(l), l);
   }
 
   /** Link do ustawienia nowego hasła. */
-  async sendReset(to: string, token: string): Promise<void> {
-    const link = this.resetLink(token);
-    await this.send(
-      to,
-      `Reset hasła — ${this.treeLabel}`,
-      this.shell(
-        'Reset hasła',
-        `<p>Otrzymaliśmy prośbę o zmianę hasła do <strong>${this.treeLabel}</strong>.</p>
-         <p>Jeśli to nie Ty, zignoruj tę wiadomość.</p>`,
-        'Ustaw nowe hasło',
-        link,
-      ),
-    );
+  async sendReset(to: string, token: string, locale: string): Promise<void> {
+    const l = normalizeMailLocale(locale);
+    const copy = resetCopy(l, this.treeLabel(l));
+    await this.deliver(to, copy, this.resetLink(token, l), l);
   }
 
-  private async send(to: string, subject: string, html: string): Promise<void> {
+  private async deliver(to: string, copy: MailCopy, ctaHref: string, locale: MailLocale): Promise<void> {
+    const html = this.shell(copy, ctaHref, locale);
     if (!this.transporter) {
       // Tryb dev bez SMTP — wypisz treść (z linkiem) do logu, żeby dało się przetestować flow.
-      this.logger.log(`[MAIL → ${to}] ${subject}\n${this.stripHtml(html)}`);
+      this.logger.log(`[MAIL → ${to}] ${copy.subject}\n${this.stripHtml(html)}`);
       return;
     }
     try {
-      await this.transporter.sendMail({ from: this.from, to, subject, html });
+      await this.transporter.sendMail({ from: this.from, to, subject: copy.subject, html });
     } catch (err) {
       this.logger.error(`Nie udało się wysłać maila do ${to}: ${(err as Error).message}`);
     }
   }
 
-  private shell(title: string, body: string, ctaLabel: string, ctaHref: string): string {
-    return `<!doctype html><html lang="pl"><body style="margin:0;background:#f8fafc;font-family:system-ui,sans-serif;color:#1e293b">
+  private shell(copy: MailCopy, ctaHref: string, locale: MailLocale): string {
+    return `<!doctype html><html lang="${locale}"><body style="margin:0;background:#f8fafc;font-family:system-ui,sans-serif;color:#1e293b">
       <div style="max-width:520px;margin:0 auto;padding:32px 24px">
         <h1 style="font-size:18px;color:#f59e0b;margin:0 0 16px">${this.appName}</h1>
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:24px">
-          <h2 style="font-size:16px;margin:0 0 12px">${title}</h2>
-          <div style="font-size:14px;line-height:1.6">${body}</div>
+          <h2 style="font-size:16px;margin:0 0 12px">${copy.title}</h2>
+          <div style="font-size:14px;line-height:1.6">${copy.body}</div>
           <p style="margin:24px 0 0">
-            <a href="${ctaHref}" style="display:inline-block;background:#f59e0b;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600">${ctaLabel}</a>
+            <a href="${ctaHref}" style="display:inline-block;background:#f59e0b;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600">${copy.cta}</a>
           </p>
-          <p style="margin:16px 0 0;font-size:12px;color:#94a3b8">Jeśli przycisk nie działa, skopiuj link: <br>${ctaHref}</p>
+          <p style="margin:16px 0 0;font-size:12px;color:#94a3b8">${mailFallbackHint[locale]} <br>${ctaHref}</p>
         </div>
       </div></body></html>`;
   }

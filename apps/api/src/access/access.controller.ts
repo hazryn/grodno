@@ -1,5 +1,5 @@
 import { Body, Controller, HttpCode, Post } from '@nestjs/common';
-import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { AccessService, type ConfirmResult } from './access.service';
 
 class RequestAccessDto {
@@ -13,6 +13,10 @@ class RequestAccessDto {
 
   @IsEmail()
   email: string;
+
+  @IsOptional()
+  @IsIn(['pl', 'en', 'de'])
+  locale?: string;
 }
 
 class ConfirmDto {
@@ -39,7 +43,7 @@ export class AccessController {
   @Post('request')
   @HttpCode(200)
   request(@Body() dto: RequestAccessDto): Promise<{ ok: true }> {
-    return this.access.request(dto.firstName, dto.lastName, dto.email);
+    return this.access.request(dto.firstName, dto.lastName, dto.email, dto.locale ?? 'pl');
   }
 
   /** Potwierdzenie maila + ustawienie hasła. Dopasowani → auto-login; reszta → czeka na admina. */

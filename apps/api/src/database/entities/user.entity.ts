@@ -33,6 +33,10 @@ export class User {
   @Column({ type: 'varchar', default: 'member' })
   role: string;
 
+  /** Preferowany język interfejsu i powiadomień e-mail (pl|en|de). */
+  @Column({ type: 'varchar', default: 'pl' })
+  locale: string;
+
   /** Brama dostępu: login i odczyt drzewa tylko dla aktywnych (po dopasowaniu/akceptacji admina). */
   @Column({ default: false })
   isActive: boolean;

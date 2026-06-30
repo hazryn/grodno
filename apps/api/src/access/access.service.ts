@@ -36,14 +36,19 @@ export class AccessService {
   /* --------------------------------- prośba o dostęp --------------------------------- */
 
   /** Zawsze zwraca to samo (nie zdradzamy, czy e-mail istnieje). */
-  async request(firstName: string, lastName: string, email: string): Promise<{ ok: true }> {
+  async request(
+    firstName: string,
+    lastName: string,
+    email: string,
+    locale: string,
+  ): Promise<{ ok: true }> {
     const normalized = this.normalizeEmail(email);
     const existing = await this.users.findByEmail(normalized);
 
     if (existing?.isActive) {
       // Konto już ma dostęp → wyślij link do ustawienia/zmiany hasła (odzysk konta).
       const token = await this.assignToken(existing, 'reset');
-      await this.mail.sendReset(normalized, token);
+      await this.mail.sendReset(normalized, token, existing.locale);
       return { ok: true };
     }
 
@@ -51,8 +56,9 @@ export class AccessService {
       // Konto istnieje, ale nieaktywne/niezweryfikowane → ponów link weryfikacyjny.
       existing.firstName = existing.firstName ?? this.clean(firstName);
       existing.lastName = existing.lastName ?? this.clean(lastName);
+      existing.locale = locale;
       const token = await this.assignToken(existing, 'verify');
-      await this.mail.sendVerify(normalized, token);
+      await this.mail.sendVerify(normalized, token, locale);
       return { ok: true };
     }
 
@@ -66,9 +72,10 @@ export class AccessService {
       role: 'member',
       isActive: false,
       emailVerified: false,
+      locale,
     });
     const token = await this.assignToken(user, 'verify');
-    await this.mail.sendVerify(normalized, token);
+    await this.mail.sendVerify(normalized, token, locale);
     return { ok: true };
   }
 
@@ -107,7 +114,7 @@ export class AccessService {
     const user = await this.users.findByEmail(normalized);
     if (user) {
       const token = await this.assignToken(user, 'reset');
-      await this.mail.sendReset(normalized, token);
+      await this.mail.sendReset(normalized, token, user.locale);
     }
     return { ok: true };
   }
@@ -146,7 +153,7 @@ export class AccessService {
     user.individualId = individual.id;
     user.isActive = true;
     const saved = await this.users.save(user);
-    await this.mail.sendApproved(saved.email);
+    await this.mail.sendApproved(saved.email, saved.locale);
     return {
       id: saved.id,
       email: saved.email,

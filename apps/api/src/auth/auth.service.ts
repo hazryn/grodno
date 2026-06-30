@@ -10,6 +10,7 @@ export interface AuthUser {
   displayName: string;
   role: string;
   individualId: string | null;
+  locale: string;
 }
 
 export interface LoginResult {
@@ -43,12 +44,14 @@ export class AuthService {
       displayName: user.displayName,
       role: user.role,
       individualId: user.individualId,
+      locale: user.locale,
     };
     const accessToken = this.jwt.sign({
       sub: user.id,
       email: user.email,
       role: user.role,
       individualId: user.individualId,
+      locale: user.locale,
     });
     return { accessToken, user: authUser };
   }

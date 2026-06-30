@@ -14,6 +14,7 @@ import type {
   MediaTagDto,
   PersonCard,
   PlaceDto,
+  Locale,
   Sex,
   SpouseRelation,
   Union,
@@ -81,16 +82,17 @@ export class IndividualsService {
 
   /* ------------------------------- kafelek/bundle ------------------------------- */
 
-  toCard(indi: Individual): PersonCard {
+  toCard(indi: Individual, locale: Locale = 'pl'): PersonCard {
     return {
       id: indi.id,
       xref: indi.xref,
       name: indi.primaryName,
-      displayName: formatPersonName(indi.names),
+      displayName: formatPersonName(indi.names, locale),
       sex: indi.sex,
       birth: indi.birthYear != null ? String(indi.birthYear) : null,
       death: indi.deathYear != null ? String(indi.deathYear) : null,
-      lifespan: indi.lifespan,
+      // Lifespan liczony pod język widza (słowo „zmarły"/„deceased"/„verstorben").
+      lifespan: this.buildLifespan(indi.birthYear, indi.deathYear, indi.deceased, indi.sex, locale),
       birthplace: indi.birthPlaceTown,
       birthplaceFull: indi.birthPlaceFull,
       photoUrl: this.media.presign(indi.photoUrl),
@@ -140,6 +142,7 @@ export class IndividualsService {
   private async buildBundle(
     indi: Individual,
     withSiblings: boolean,
+    locale: Locale = 'pl',
   ): Promise<{
     bundle: Bundle;
     father: Individual | null;
@@ -247,38 +250,38 @@ export class IndividualsService {
         }
       }
       unions.push({
-        spouse: sp ? this.toCard(sp) : null,
+        spouse: sp ? this.toCard(sp, locale) : null,
         relation: sp ? relBySpouse.get(sp.id) ?? 'partner' : null,
-        children: kidEnts.map((c) => this.toCard(c)),
+        children: kidEnts.map((c) => this.toCard(c, locale)),
       });
     }
     const spouseRelation: SpouseRelation | null = unions[0]?.relation ?? null;
 
     const bundle: Bundle = {
-      self: this.toCard(indi),
-      father: father ? this.toCard(father) : null,
-      mother: mother ? this.toCard(mother) : null,
-      spouse: spouse ? this.toCard(spouse) : null,
+      self: this.toCard(indi, locale),
+      father: father ? this.toCard(father, locale) : null,
+      mother: mother ? this.toCard(mother, locale) : null,
+      spouse: spouse ? this.toCard(spouse, locale) : null,
       spouseRelation,
       children: unions[0]?.children ?? [],
       unions,
     };
     if (withSiblings) {
-      bundle.siblings = siblingEnts.map((s) => this.toCard(s));
+      bundle.siblings = siblingEnts.map((s) => this.toCard(s, locale));
     }
 
     return { bundle, father, mother, spouse, childEnts, siblingEnts };
   }
 
-  async getBundle(id: string): Promise<Bundle> {
+  async getBundle(id: string, locale: Locale = 'pl'): Promise<Bundle> {
     const indi = await this.indiRepo.findOne({ where: { id } });
     if (!indi) throw new NotFoundException(`Osoba ${id} nie istnieje`);
-    const { bundle } = await this.buildBundle(indi, true);
+    const { bundle } = await this.buildBundle(indi, true, locale);
     return bundle;
   }
 
   /** Głęboki payload startowy: focal + `up` pokoleń przodków + `down` potomków (+ rodzeństwo focal-a). */
-  async getPayload(id: string, up: number, down: number): Promise<BundlePayload> {
+  async getPayload(id: string, up: number, down: number, locale: Locale = 'pl'): Promise<BundlePayload> {
     const focal = await this.indiRepo.findOne({ where: { id } });
     if (!focal) throw new NotFoundException(`Osoba ${id} nie istnieje`);
 
@@ -290,7 +293,7 @@ export class IndividualsService {
       withSiblings: boolean,
     ): Promise<void> => {
       if (map.has(indi.id)) return;
-      const built = await this.buildBundle(indi, withSiblings);
+      const built = await this.buildBundle(indi, withSiblings, locale);
       map.set(indi.id, built.bundle);
 
       if (upLeft > 0) {
@@ -315,10 +318,10 @@ export class IndividualsService {
 
     // Wujowie/ciotki: rodzeństwo OBOJGA rodziców + ich małżonkowie + dzieci (kuzyni)
     // + małżonkowie i dzieci kuzynów. Dzięki temu front może pokazać potomków dziadków.
-    const focalBuilt = await this.buildBundle(focal, true);
+    const focalBuilt = await this.buildBundle(focal, true, locale);
     for (const parent of [focalBuilt.father, focalBuilt.mother]) {
       if (!parent) continue;
-      const pb = await this.buildBundle(parent, true);
+      const pb = await this.buildBundle(parent, true, locale);
       map.set(parent.id, pb.bundle); // bundle rodzica z rodzeństwem (= wujowie/ciotki)
       for (const uncle of pb.siblingEnts) {
         await collect(uncle, 0, 2, false);
@@ -343,7 +346,7 @@ export class IndividualsService {
     };
   }
 
-  async getIndividual(id: string): Promise<IndividualDto> {
+  async getIndividual(id: string, locale: Locale = 'pl'): Promise<IndividualDto> {
     const indi = await this.indiRepo.findOne({ where: { id } });
     if (!indi) throw new NotFoundException(`Osoba ${id} nie istnieje`);
 
@@ -416,7 +419,7 @@ export class IndividualsService {
     }
 
     // małżeństwa (ekran „Dane"): partner + MARR event (data/miejsce) + zdjęcie ślubu
-    const marriages = await this.buildMarriages(id, partnerships, events);
+    const marriages = await this.buildMarriages(id, partnerships, events, locale);
 
     return {
       id: indi.id,
@@ -448,6 +451,7 @@ export class IndividualsService {
     ownerId: string,
     partnerships: Partnership[],
     events: Event[],
+    locale: Locale = 'pl',
   ): Promise<MarriageDto[]> {
     if (!partnerships.length) return [];
     const spouseIds = partnerships
@@ -472,7 +476,7 @@ export class IndividualsService {
       return {
         partnershipId: p.id,
         spouseId: spouse?.id ?? null,
-        spouseName: spouse ? formatPersonName(spouse.names) : null,
+        spouseName: spouse ? formatPersonName(spouse.names, locale) : null,
         type: p.type,
         date: marr?.date ?? null,
         placeName: marr?.placeName ?? null,
@@ -955,17 +959,29 @@ export class IndividualsService {
     death: number | null,
     isDeceased: boolean,
     sex: string,
+    locale: Locale = 'pl',
   ): string | null {
     const b = birth ?? null;
     const d = death ?? null;
-    const word = sex === 'F' ? 'zmarła' : sex === 'M' ? 'zmarły' : 'zmarły/a';
+    const word = this.deceasedWord(sex, locale);
     if (b !== null && d !== null) return `${b} – ${d}`;
     if (d !== null) return `– ${d}`;
     if (b !== null) return isDeceased ? `${b} – ${word}` : `${b}`;
     return isDeceased ? word : null;
   }
 
-  async list(treeId: string, search: string | undefined, limit: number): Promise<PersonCard[]> {
+  private deceasedWord(sex: string, locale: Locale): string {
+    if (locale === 'en') return 'deceased';
+    if (locale === 'de') return 'verstorben';
+    return sex === 'F' ? 'zmarła' : sex === 'M' ? 'zmarły' : 'zmarły/a';
+  }
+
+  async list(
+    treeId: string,
+    search: string | undefined,
+    limit: number,
+    locale: Locale = 'pl',
+  ): Promise<PersonCard[]> {
     const take = Math.min(Math.max(limit, 1), 200);
     if (!search) {
       const rows = await this.indiRepo.find({
@@ -973,7 +989,7 @@ export class IndividualsService {
         order: { primaryName: 'ASC' },
         take,
       });
-      return rows.map((r) => this.toCard(r));
+      return rows.map((r) => this.toCard(r, locale));
     }
     // Szukaj po nazwisku głównym ORAZ po wariantach w jsonb `names`
     // (po ślubie, panieńskie, aka) — match po pełnej nazwie lub samym nazwisku.
@@ -990,6 +1006,6 @@ export class IndividualsService {
       .orderBy('i.primaryName', 'ASC')
       .take(take)
       .getMany();
-    return rows.map((r) => this.toCard(r));
+    return rows.map((r) => this.toCard(r, locale));
   }
 }

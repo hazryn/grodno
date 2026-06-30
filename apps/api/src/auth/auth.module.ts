@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../database/entities';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AdminGuard } from './admin.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { UsersService } from './users.service';
 
@@ -31,7 +32,8 @@ function resolveJwtSecret(): string {
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, UsersService, JwtAuthGuard],
-  exports: [AuthService, UsersService],
+  providers: [AuthService, UsersService, JwtAuthGuard, AdminGuard],
+  // JwtModule re-export → moduły importujące AuthModule mogą używać JwtAuthGuard (potrzebuje JwtService).
+  exports: [AuthService, UsersService, JwtAuthGuard, AdminGuard, JwtModule],
 })
 export class AuthModule {}

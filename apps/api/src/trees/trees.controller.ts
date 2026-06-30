@@ -1,6 +1,8 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TreesService, type TreeSummary } from './trees.service';
 
+@UseGuards(JwtAuthGuard)
 @Controller('trees')
 export class TreesController {
   constructor(private readonly service: TreesService) {}

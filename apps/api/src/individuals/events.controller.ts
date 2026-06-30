@@ -5,11 +5,14 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  UseGuards,
 } from '@nestjs/common';
 import type { EventDto } from '@rodno/shared';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { IndividualsService, type EventInput } from './individuals.service';
 
 /** Edycja / usuwanie pojedynczego zdarzenia osi czasu (tworzenie: POST /individuals/:id/events). */
+@UseGuards(JwtAuthGuard)
 @Controller('events')
 export class EventsController {
   constructor(private readonly service: IndividualsService) {}

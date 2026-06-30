@@ -10,6 +10,7 @@ import {
   Partnership,
   Place,
 } from '../database/entities';
+import { AuthModule } from '../auth/auth.module';
 import { IndividualsController } from './individuals.controller';
 import { MediaController } from './media.controller';
 import { EventsController } from './events.controller';
@@ -27,6 +28,7 @@ import { IndividualsService } from './individuals.service';
       MediaTag,
       Place,
     ]),
+    AuthModule,
   ],
   controllers: [IndividualsController, MediaController, EventsController],
   providers: [IndividualsService],

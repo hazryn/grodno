@@ -10,9 +10,11 @@ import {
   Query,
   UploadedFile,
   UploadedFiles,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type {
   Bundle,
   BundlePayload,
@@ -40,6 +42,7 @@ function toInt(value: string | undefined, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+@UseGuards(JwtAuthGuard)
 @Controller('individuals')
 export class IndividualsController {
   constructor(private readonly service: IndividualsService) {}

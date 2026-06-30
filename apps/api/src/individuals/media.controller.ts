@@ -6,11 +6,14 @@ import {
   ParseUUIDPipe,
   Patch,
   Put,
+  UseGuards,
 } from '@nestjs/common';
 import type { GedcomDateValue, MediaDto, MediaTagDto } from '@rodno/shared';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { IndividualsService } from './individuals.service';
 
 /** Operacje na pojedynczym obiekcie medialnym (opis, data, oznaczenia, usuwanie). */
+@UseGuards(JwtAuthGuard)
 @Controller('media')
 export class MediaController {
   constructor(private readonly service: IndividualsService) {}

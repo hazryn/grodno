@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../database/entities';
+import type { UserTokenType } from '../database/entities/user.entity';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
@@ -22,6 +23,8 @@ export class UsersService implements OnModuleInit {
       passwordHash: await bcrypt.hash(password, 10),
       displayName: 'Administrator',
       role: 'admin',
+      isActive: true,
+      emailVerified: true,
     });
     await this.repo.save(user);
     this.logger.log(`Seed: utworzono konto admina ${email}`);
@@ -33,5 +36,26 @@ export class UsersService implements OnModuleInit {
 
   findById(id: string): Promise<User | null> {
     return this.repo.findOne({ where: { id } });
+  }
+
+  create(data: Partial<User>): Promise<User> {
+    return this.repo.save(this.repo.create(data));
+  }
+
+  save(user: User): Promise<User> {
+    return this.repo.save(user);
+  }
+
+  /** Konto po hashu jednorazowego tokenu (weryfikacja maila / reset hasła). */
+  findByToken(tokenHash: string, type: UserTokenType): Promise<User | null> {
+    return this.repo.findOne({ where: { token: tokenHash, tokenType: type } });
+  }
+
+  /** Kolejka admina: konta ze zweryfikowanym mailem, czekające na aktywację. */
+  listPending(): Promise<User[]> {
+    return this.repo.find({
+      where: { emailVerified: true, isActive: false },
+      order: { createdAt: 'ASC' },
+    });
   }
 }

@@ -4,6 +4,8 @@
  * `tag` to znacznik GEDCOM (z prefiksem `_` dla rozszerzeń niestandardowych).
  */
 
+import type { Locale } from './locale.js';
+
 export type EventCategory =
   | 'vital' // życiowe
   | 'religious' // religijne
@@ -84,9 +86,56 @@ const BY_TAG: Record<string, EventTypeDef> = Object.fromEntries(
   EVENT_TYPE_CATALOG.map((e) => [e.tag, e]),
 );
 
-/** Etykieta PL dla znacznika (fallback: sam znacznik). */
-export function eventTypeLabelPl(tag: string): string {
+/** Tłumaczenia etykiet zdarzeń (PL żyje w katalogu jako labelPl). */
+const EVENT_LABELS_EN: Record<string, string> = {
+  BIRT: 'Birth', DEAT: 'Death', BURI: 'Burial', CREM: 'Cremation',
+  BAPM: 'Baptism', CHR: 'Christening', CONF: 'Confirmation', FCOM: 'First communion',
+  BARM: 'Bar mitzvah', BASM: 'Bat mitzvah', ORDN: 'Ordination',
+  ENGA: 'Engagement', MARR: 'Marriage', MARB: 'Banns', DIV: 'Divorce', ANUL: 'Annulment',
+  OCCU: 'Occupation', EDUC: 'Education', GRAD: 'Graduation', RETI: 'Retirement', _MILT: 'Military service',
+  RESI: 'Residence', EMIG: 'Emigration', IMMI: 'Immigration', NATU: 'Naturalization', CENS: 'Census',
+  RELI: 'Religion', NATI: 'Nationality', DSCR: 'Physical description', CAUS: 'Cause of death',
+  PROP: 'Property', TITL: 'Title', IDNO: 'ID number', EVEN: 'Event',
+};
+
+const EVENT_LABELS_DE: Record<string, string> = {
+  BIRT: 'Geburt', DEAT: 'Tod', BURI: 'Beerdigung', CREM: 'Einäscherung',
+  BAPM: 'Taufe', CHR: 'Taufe', CONF: 'Firmung', FCOM: 'Erstkommunion',
+  BARM: 'Bar Mizwa', BASM: 'Bat Mizwa', ORDN: 'Ordination',
+  ENGA: 'Verlobung', MARR: 'Heirat', MARB: 'Aufgebot', DIV: 'Scheidung', ANUL: 'Annullierung',
+  OCCU: 'Beruf', EDUC: 'Ausbildung', GRAD: 'Schulabschluss', RETI: 'Ruhestand', _MILT: 'Militärdienst',
+  RESI: 'Wohnsitz', EMIG: 'Auswanderung', IMMI: 'Einwanderung', NATU: 'Einbürgerung', CENS: 'Volkszählung',
+  RELI: 'Religion', NATI: 'Nationalität', DSCR: 'Personenbeschreibung', CAUS: 'Todesursache',
+  PROP: 'Vermögen', TITL: 'Titel', IDNO: 'Ausweisnummer', EVEN: 'Ereignis',
+};
+
+const EVENT_CATEGORY_LABELS_EN: Record<EventCategory, string> = {
+  vital: 'Life events', religious: 'Religious', family: 'Family',
+  career: 'Career & education', migration: 'Migration & census', personal: 'Personal',
+};
+
+const EVENT_CATEGORY_LABELS_DE: Record<EventCategory, string> = {
+  vital: 'Lebensereignisse', religious: 'Religiös', family: 'Familie',
+  career: 'Beruf & Ausbildung', migration: 'Migration & Zählung', personal: 'Persönlich',
+};
+
+/** Etykieta typu zdarzenia w danym języku (fallback: PL → sam znacznik). */
+export function eventTypeLabel(tag: string, locale: Locale = 'pl'): string {
+  if (locale === 'en') return EVENT_LABELS_EN[tag] ?? BY_TAG[tag]?.labelPl ?? tag;
+  if (locale === 'de') return EVENT_LABELS_DE[tag] ?? BY_TAG[tag]?.labelPl ?? tag;
   return BY_TAG[tag]?.labelPl ?? tag;
+}
+
+/** Etykieta kategorii zdarzeń w danym języku. */
+export function eventCategoryLabel(cat: EventCategory, locale: Locale = 'pl'): string {
+  if (locale === 'en') return EVENT_CATEGORY_LABELS_EN[cat];
+  if (locale === 'de') return EVENT_CATEGORY_LABELS_DE[cat];
+  return EVENT_CATEGORY_LABELS_PL[cat];
+}
+
+/** Wrapper PL (zgodność wsteczna). */
+export function eventTypeLabelPl(tag: string): string {
+  return eventTypeLabel(tag, 'pl');
 }
 
 /** Czy dany typ zdarzenia ma sens z uczestnikami (chrzestni/świadkowie). */

@@ -5,6 +5,8 @@
  * + klucz sortowania. Round-trip do GEDCOM zachowuje `raw`.
  */
 
+import type { Locale } from './locale.js';
+
 export type GedcomDateKind =
   | 'exact' // 12 MAY 1900 / MAY 1900 / 1900
   | 'about' // ABT
@@ -41,10 +43,12 @@ const MONTHS: Record<string, number> = {
   JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12,
 };
 
-const MONTH_NAMES_PL = [
-  'sty', 'lut', 'mar', 'kwi', 'maj', 'cze',
-  'lip', 'sie', 'wrz', 'paź', 'lis', 'gru',
-];
+/** Skrócone nazwy miesięcy per locale (reużywane też przez selektor daty w UI). */
+export const MONTH_NAMES: Record<Locale, string[]> = {
+  pl: ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'],
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  de: ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'],
+};
 
 /** Parsuje pojedynczą datę kalendarzową GEDCOM, np. "12 MAY 1900", "MAY 1900", "1900". */
 function parseSimpleDate(input: string): SimpleDate | undefined {
@@ -160,39 +164,54 @@ export function gedcomDateYear(value: GedcomDateValue | null | undefined): numbe
   return y ?? null;
 }
 
-const KIND_PREFIX_PL: Partial<Record<GedcomDateKind, string>> = {
-  about: 'ok. ',
-  calculated: 'wyl. ',
-  estimated: 'sz. ',
-  before: 'przed ',
-  after: 'po ',
+const KIND_PREFIX: Record<Locale, Partial<Record<GedcomDateKind, string>>> = {
+  pl: { about: 'ok. ', calculated: 'wyl. ', estimated: 'sz. ', before: 'przed ', after: 'po ' },
+  en: { about: 'c. ', calculated: 'calc. ', estimated: 'est. ', before: 'before ', after: 'after ' },
+  de: { about: 'um ', calculated: 'ber. ', estimated: 'gesch. ', before: 'vor ', after: 'nach ' },
 };
 
-function formatSimplePl(d: SimpleDate | undefined): string {
+/** Słowa łączące zakresy: [between/period start, between/period join, from, to]. */
+const DATE_WORDS: Record<Locale, { btw: string; and: string; from: string; to: string; fromOpen: string; toOpen: string }> = {
+  pl: { btw: 'między', and: 'a', from: 'od', to: 'do', fromOpen: 'od', toOpen: 'do' },
+  en: { btw: 'between', and: 'and', from: 'from', to: 'to', fromOpen: 'from', toOpen: 'until' },
+  de: { btw: 'zwischen', and: 'und', from: 'von', to: 'bis', fromOpen: 'ab', toOpen: 'bis' },
+};
+
+function formatSimple(d: SimpleDate | undefined, locale: Locale): string {
   if (!d) return '';
   const parts: string[] = [];
   if (d.day !== undefined) parts.push(String(d.day));
-  if (d.month !== undefined) parts.push(MONTH_NAMES_PL[d.month - 1] ?? String(d.month));
+  if (d.month !== undefined) parts.push(MONTH_NAMES[locale][d.month - 1] ?? String(d.month));
   if (d.year !== undefined) parts.push(String(d.year));
   return parts.join(' ');
 }
 
-/** Czytelny zapis PL (POC; i18n EN/PL dojdzie z resztą interfejsu). */
-export function formatGedcomDatePl(value: GedcomDateValue | null | undefined): string {
+/** Czytelny zapis daty w danym języku (domyślnie polski). */
+export function formatGedcomDate(
+  value: GedcomDateValue | null | undefined,
+  locale: Locale = 'pl',
+): string {
   if (!value) return '';
+  const f = (d: SimpleDate | undefined) => formatSimple(d, locale);
+  const w = DATE_WORDS[locale];
   switch (value.kind) {
     case 'between':
-      return `między ${formatSimplePl(value.date)} a ${formatSimplePl(value.end)}`;
+      return `${w.btw} ${f(value.date)} ${w.and} ${f(value.end)}`;
     case 'period':
-      return `od ${formatSimplePl(value.date)} do ${formatSimplePl(value.end)}`;
+      return `${w.from} ${f(value.date)} ${w.to} ${f(value.end)}`;
     case 'from':
-      return `od ${formatSimplePl(value.date)}`;
+      return `${w.fromOpen} ${f(value.date)}`;
     case 'to':
-      return `do ${formatSimplePl(value.date)}`;
+      return `${w.toOpen} ${f(value.date)}`;
     case 'phrase':
     case 'unknown':
       return value.raw;
     default:
-      return (KIND_PREFIX_PL[value.kind] ?? '') + formatSimplePl(value.date);
+      return (KIND_PREFIX[locale][value.kind] ?? '') + f(value.date);
   }
+}
+
+/** Wrapper PL (zgodność wsteczna). */
+export function formatGedcomDatePl(value: GedcomDateValue | null | undefined): string {
+  return formatGedcomDate(value, 'pl');
 }

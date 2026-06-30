@@ -3,11 +3,16 @@
 export { normalizeSex } from './sex.js';
 export type { Sex } from './sex.js';
 
+export { LOCALES, DEFAULT_LOCALE, normalizeLocale } from './locale.js';
+export type { Locale } from './locale.js';
+
 export {
   parseGedcomDate,
   gedcomDateSortKey,
   gedcomDateYear,
+  formatGedcomDate,
   formatGedcomDatePl,
+  MONTH_NAMES,
 } from './gedcom-date.js';
 export type { GedcomDateKind, SimpleDate, GedcomDateValue } from './gedcom-date.js';
 
@@ -32,7 +37,9 @@ export type {
 export {
   EVENT_TYPE_CATALOG,
   EVENT_CATEGORY_LABELS_PL,
+  eventTypeLabel,
   eventTypeLabelPl,
+  eventCategoryLabel,
   eventTypeHasParticipants,
   isCoupleEventType,
 } from './event-types.js';

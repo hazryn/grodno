@@ -1,4 +1,5 @@
 import type { PersonName } from './domain.js';
+import type { Locale } from './locale.js';
 
 /**
  * Etykiety kolejnych nazwisk po ślubie (po polsku; łac. primo/secundo voto).
@@ -6,7 +7,19 @@ import type { PersonName } from './domain.js';
  */
 export const VOTO_LABELS = ['z 1. małżeństwa', 'z 2. małżeństwa', 'z 3. małżeństwa', 'z 4. małżeństwa'];
 
-export function votoLabel(i: number): string {
+/** „z domu" / „née" / „geb." — prefiks nazwiska rodowego. */
+const NEE: Record<Locale, string> = { pl: 'zd.', en: 'née', de: 'geb.' };
+
+function enOrdinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
+}
+
+/** Etykieta „z i-tego małżeństwa" w danym języku. */
+export function votoLabel(i: number, locale: Locale = 'pl'): string {
+  if (locale === 'en') return `from ${enOrdinal(i + 1)} marriage`;
+  if (locale === 'de') return `aus ${i + 1}. Ehe`;
   return VOTO_LABELS[i] ?? `z ${i + 1}. małżeństwa`;
 }
 
@@ -30,7 +43,10 @@ export function femaleSurname(surname: string | null | undefined): string | null
  * - jedno po ślubie → „Imię NazwiskoPoŚlubie (zd. NazwiskoRodowe)",
  * - wiele po ślubie → bieżące (ostatnie) jako główne + „(zd. …, primo voto …)".
  */
-export function formatPersonName(names: PersonName[] | null | undefined): string {
+export function formatPersonName(
+  names: PersonName[] | null | undefined,
+  locale: Locale = 'pl',
+): string {
   if (!names || !names.length) return '…';
   const primary = names[0];
   const given = (primary.given ?? primary.full?.split(/\s+/)[0] ?? '').trim();
@@ -44,7 +60,7 @@ export function formatPersonName(names: PersonName[] | null | undefined): string
   const current = married[married.length - 1];
   const main = `${given} ${current}`.trim();
   const parts: string[] = [];
-  if (birthSurname) parts.push(`zd. ${birthSurname}`);
-  for (let i = 0; i < married.length - 1; i++) parts.push(`${votoLabel(i)} ${married[i]}`);
+  if (birthSurname) parts.push(`${NEE[locale]} ${birthSurname}`);
+  for (let i = 0; i < married.length - 1; i++) parts.push(`${votoLabel(i, locale)} ${married[i]}`);
   return parts.length ? `${main} (${parts.join(', ')})` : main;
 }

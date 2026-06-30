@@ -19,6 +19,16 @@ export interface TreeSummary {
   focalId: string | null;
 }
 
+/** Konto czekające na przypisanie do osoby (panel admina). */
+export interface PendingUser {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  displayName: string;
+  createdAt: string;
+}
+
 /** Częściowa edycja osoby (pola opcjonalne). */
 export interface IndividualPatch {
   names?: PersonName[];
@@ -48,11 +58,25 @@ export interface EventPatch {
 
 export function useApi() {
   const base = useRuntimeConfig().public.apiBase as string;
-  const get = <T>(path: string) => $fetch<T>(`${base}${path}`);
+  // Token z cookie (czytelne, działa też w SSR) → nagłówek Bearer na każdym żądaniu.
+  const token = useCookie<string | null>('rodno_token');
+  const authHeaders = (): Record<string, string> =>
+    token.value ? { Authorization: `Bearer ${token.value}` } : {};
+  const get = <T>(path: string) => $fetch<T>(`${base}${path}`, { headers: authHeaders() });
   const send = <T>(path: string, method: string, body?: unknown) =>
-    $fetch<T>(`${base}${path}`, { method: method as any, body: body as any });
+    $fetch<T>(`${base}${path}`, {
+      method: method as any,
+      body: body as any,
+      headers: authHeaders(),
+    });
 
   return {
+    /** Publiczny agregat dla landingu (bez auth): top nazwiska w drzewie. */
+    topSurnames: (tree: string, limit = 20) =>
+      get<Array<{ surname: string; count: number }>>(
+        `/public/surnames?tree=${encodeURIComponent(tree)}&limit=${limit}`,
+      ),
+
     trees: () => get<TreeSummary[]>('/trees'),
     tree: (name: string) => get<TreeSummary>(`/trees/${encodeURIComponent(name)}`),
     payload: (id: string, up = 4, down = 2) =>
@@ -63,6 +87,13 @@ export function useApi() {
       get<PersonCard[]>(
         `/individuals?treeId=${treeId}&search=${encodeURIComponent(q)}&limit=20`,
       ),
+
+    /* ----------------------------------- admin ----------------------------------- */
+
+    adminPendingUsers: () => get<PendingUser[]>('/admin/users/pending'),
+
+    adminAssignIndividual: (userId: string, individualId: string) =>
+      send<PendingUser>(`/admin/users/${userId}/individual`, 'PATCH', { individualId }),
 
     /* ----------------------------------- zapis ----------------------------------- */
 

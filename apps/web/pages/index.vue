@@ -1,236 +1,181 @@
 <script setup lang="ts">
-import { TreeGraph, type TreeLayout } from '../utils/treeGraph';
-import type { TreeSummary } from '../composables/useApi';
+definePageMeta({ middleware: 'guest' });
 
+const config = useRuntimeConfig();
+const appTitle = config.public.appTitle as string;
+const familyName = config.public.familyName as string;
+const tagline = config.public.tagline as string;
+const description = config.public.description as string;
+
+const heading = familyName ? `Drzewo rodziny ${familyName}` : tagline;
+
+interface Feature {
+  icon: string;
+  title: string;
+  desc: string;
+}
+
+const features: Feature[] = [
+  {
+    icon: '🌳',
+    title: 'Interaktywne drzewo',
+    desc: 'Przeglądaj pokolenia w górę i w dół, rozwijaj gałęzie i centruj widok na dowolnej osobie.',
+  },
+  {
+    icon: '📸',
+    title: 'Galerie zdjęć',
+    desc: 'Albumy przy każdej osobie i parze, oznaczanie twarzy na zdjęciach, fotografie ślubne.',
+  },
+  {
+    icon: '🕰️',
+    title: 'Oś czasu życia',
+    desc: 'Narodziny, śluby, miejsca, praca i ważne wydarzenia — cała historia w jednym miejscu.',
+  },
+  {
+    icon: '👤',
+    title: 'Bogate profile',
+    desc: 'Biografie, nazwiska panieńskie, linki, dokumenty i wspomnienia o bliskich.',
+  },
+  {
+    icon: '💬',
+    title: 'Czat i wspomnienia',
+    desc: 'Rozmawiajcie, komentujcie zdjęcia i spisujcie rodzinne historie wspólnie.',
+  },
+  {
+    icon: '🎂',
+    title: 'Przypomnienia',
+    desc: 'Urodziny, imieniny i rocznice ślubu — nigdy nie przegapisz ważnej daty.',
+  },
+  {
+    icon: '🗺️',
+    title: 'Mapa rodziny',
+    desc: 'Zobacz, skąd pochodzą Twoi przodkowie i jak rodzina wędrowała przez pokolenia.',
+  },
+  {
+    icon: '✍️',
+    title: 'Wspólne tworzenie',
+    desc: 'Każdy dokłada cegiełkę: zdjęcia, daty, historie. Drzewo rośnie razem z całą rodziną.',
+  },
+];
+
+// Top 20 nazwisk — pobierane w SSR (useAsyncData renderuje serwerowo, bez migotania).
 const api = useApi();
-const route = useRoute();
-const router = useRouter();
-const graph = new TreeGraph();
-const layout = shallowRef<TreeLayout>({ nodes: [], links: [], width: 0, height: 0 });
-const focalId = ref('');
-const tree = ref<TreeSummary | null>(null);
-const loading = ref(true);
-const error = ref<string | null>(null);
-const modalId = ref<string | null>(null);
-
-function relayout() {
-  if (focalId.value) layout.value = graph.layout(focalId.value);
-}
-
-const treeRef = ref<{ centerOnFocal: () => void } | null>(null);
-
-async function focusOn(id: string, deep = false) {
-  focalId.value = id;
-  if (deep || !graph.expanded.has(id)) {
-    const payload = await api.payload(id, 4, 2);
-    graph.ingestPayload(payload);
-  }
-  relayout();
-  // Centruj na osobie DOPIERO po przebudowie layoutu (na nowej pozycji focal-a).
-  await nextTick();
-  treeRef.value?.centerOnFocal();
-  // Zapisz aktywną osobę w URL (?p=id) — F5 nie resetuje widoku.
-  if (route.query.p !== id) router.replace({ query: { ...route.query, p: id } });
-}
-
-async function expandUp(id: string) {
-  const b = await api.bundle(id);
-  graph.ingestBundle(b);
-  // dociągnij też rodziców (żeby od razu mieli swoje flagi +/−)
-  await Promise.all(
-    [b.father?.id, b.mother?.id].filter((x): x is string => !!x).map(async (pid) => {
-      if (!graph.expanded.has(pid)) graph.ingestBundle(await api.bundle(pid));
-    }),
-  );
-  relayout();
-}
-
-async function expandDown(id: string) {
-  const b = await api.bundle(id);
-  graph.ingestBundle(b);
-  await Promise.all(
-    b.children.map(async (c) => {
-      if (!graph.expanded.has(c.id)) graph.ingestBundle(await api.bundle(c.id));
-    }),
-  );
-  relayout();
-}
-
-const canExpandUp = (id: string) => graph.canExpandUp(id);
-const canExpandDown = (id: string) => graph.canExpandDown(id);
-
-// Domyślnie panel boczny (sheet); docelowo opcja w profilu użytkownika.
-const displayMode = ref<'sheet' | 'modal'>('sheet');
-
-const toast = ref<string | null>(null);
-let toastTimer: ReturnType<typeof setTimeout> | null = null;
-function showToast(msg: string) {
-  toast.value = msg;
-  if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (toast.value = null), 3500);
-}
-function onAddParent({ slot, forId }: { forId: string; slot: 'father' | 'mother' }) {
-  const who = graph.cards.get(forId)?.name ?? 'osoby';
-  showToast(`Dodawanie ${slot === 'father' ? 'ojca' : 'matki'} dla „${who}" — edycja w fazie 2.`);
-}
-
-const addMenu = ref<
-  { id: string; name: string; x: number; y: number; hasFather: boolean; hasMother: boolean } | null
->(null);
-
-async function openAddMenu(p: { id: string; name: string; x: number; y: number }) {
-  // Upewnij się, że znamy rodziców (dociągnij bundle, jeśli to karta bez własnego bundla).
-  let info = graph.parentInfo(p.id);
-  if (!info.known) {
-    try {
-      graph.ingestBundle(await api.bundle(p.id));
-      info = graph.parentInfo(p.id);
-    } catch {
-      /* ignoruj — pokaż menu bez wyszarzeń */
-    }
-  }
-  addMenu.value = { ...p, hasFather: info.hasFather, hasMother: info.hasMother };
-}
-
-function onAddRelative(label: string) {
-  const who = addMenu.value?.name ?? 'osoby';
-  addMenu.value = null;
-  showToast(`${label} (dla „${who}") — edycja w fazie 2.`);
-}
-
-onMounted(async () => {
-  try {
-    tree.value = await api.tree('szejna');
-    const urlId = typeof route.query.p === 'string' ? route.query.p : null;
-    const start = urlId ?? tree.value.focalId;
-    if (start) {
-      try {
-        await focusOn(start, true);
-      } catch {
-        // id z URL nieaktualne (np. po re-imporcie zmieniły się UUID-y) → domyślna osoba
-        if (tree.value.focalId && start !== tree.value.focalId) {
-          await focusOn(tree.value.focalId, true);
-        }
-      }
-    } else {
-      error.value = 'Drzewo jest puste — uruchom import GEDCOM.';
-    }
-  } catch (e) {
-    error.value = 'Nie mogę połączyć się z API (http://localhost:5201). Czy backend działa?';
-  } finally {
-    loading.value = false;
-  }
-});
-
-function onRecenter(id: string) {
-  modalId.value = null;
-  focusOn(id, true);
-}
-
-/** Po edycji osoby — odśwież jej kafelek (imię/avatar/lifespan) w drzewie. */
-async function onPersonChanged(id: string) {
-  try {
-    graph.ingestBundle(await api.bundle(id));
-    relayout();
-  } catch {
-    /* ignoruj — kafelek odświeży się przy następnym dociągnięciu */
-  }
+const { data: surnames } = await useAsyncData('top-surnames', () =>
+  api.topSurnames(config.public.treeName as string).catch(() => [] as Array<{ surname: string; count: number }>),
+);
+const maxCount = computed(() => surnames.value?.[0]?.count ?? 1);
+function sizeFor(count: number): string {
+  return `${(0.9 + (count / maxCount.value) * 1.5).toFixed(2)}rem`;
 }
 </script>
 
 <template>
-  <div class="flex h-screen flex-col bg-slate-50">
-    <!-- header -->
-    <header class="z-10 flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 py-3 shadow-sm">
-      <div class="flex items-baseline gap-3">
-        <h1 class="text-lg font-bold tracking-tight text-slate-800">
-          <span class="text-amber-500">Rodno</span>
-        </h1>
-        <span v-if="tree" class="text-sm text-slate-400">
-          drzewo „{{ tree.name }}" · {{ tree.individualCount }} osób
-        </span>
-      </div>
-      <div class="flex items-center gap-3">
-        <div class="flex rounded-lg border border-slate-200 p-0.5 text-xs font-medium">
-          <button
-            class="rounded-md px-2.5 py-1 transition"
-            :class="displayMode === 'sheet' ? 'bg-amber-100 text-amber-700' : 'text-slate-500 hover:bg-slate-50'"
-            @click="displayMode = 'sheet'"
-          >
-            Panel
-          </button>
-          <button
-            class="rounded-md px-2.5 py-1 transition"
-            :class="displayMode === 'modal' ? 'bg-amber-100 text-amber-700' : 'text-slate-500 hover:bg-slate-50'"
-            @click="displayMode = 'modal'"
-          >
-            Okno
-          </button>
-        </div>
-        <SearchBox v-if="tree" :tree-id="tree.id" @select="(id) => focusOn(id, true)" />
-      </div>
+  <div class="min-h-screen bg-gradient-to-b from-amber-50 via-white to-slate-50">
+    <header class="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
+      <span class="text-lg font-bold tracking-tight text-amber-500">{{ appTitle }}</span>
+      <NuxtLink
+        to="/login"
+        class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50"
+      >
+        Zaloguj się
+      </NuxtLink>
     </header>
 
-    <!-- tree -->
-    <main class="relative flex-1 overflow-hidden">
-      <div v-if="loading" class="flex h-full items-center justify-center text-slate-400">
-        Wczytywanie drzewa…
+    <!-- HERO: tekst 2/3, formularz 1/3 -->
+    <section class="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 py-12 md:grid-cols-3 md:py-20">
+      <div class="md:col-span-2">
+        <span class="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+          Rodzinne drzewo genealogiczne
+        </span>
+        <h1 class="mt-4 text-4xl font-bold leading-tight tracking-tight text-slate-800 sm:text-5xl">
+          {{ heading }}
+        </h1>
+        <p class="mt-4 max-w-md text-lg leading-relaxed text-slate-500">
+          {{ description }}
+        </p>
+        <p class="mt-3 max-w-md text-base leading-relaxed text-slate-500">
+          Wspólne, żywe miejsce, w którym poznajecie swoich przodków, dzielicie się zdjęciami
+          i wspomnieniami — i pielęgnujecie pamięć o rodzinie z pokolenia na pokolenie.
+        </p>
+        <div class="mt-8 flex flex-wrap items-center gap-3">
+          <a
+            href="#dostep"
+            class="rounded-lg bg-amber-500 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600"
+          >
+            Poproś o dostęp
+          </a>
+          <NuxtLink
+            to="/login"
+            class="rounded-lg border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+          >
+            Mam już konto
+          </NuxtLink>
+        </div>
+        <p class="mt-4 text-sm text-slate-400">🔒 Dostęp tylko dla rodziny — po potwierdzeniu adresu e-mail.</p>
       </div>
-      <div v-else-if="error" class="flex h-full items-center justify-center">
-        <div class="max-w-md rounded-xl border border-amber-200 bg-amber-50 px-6 py-4 text-center text-sm text-amber-800">
-          {{ error }}
+
+      <div id="dostep" class="scroll-mt-8">
+        <AccessRequestForm />
+        <p class="mt-4 text-center text-sm text-slate-400">
+          Masz już dostęp?
+          <NuxtLink to="/login" class="font-medium text-amber-600 hover:text-amber-700">Zaloguj się</NuxtLink>
+        </p>
+      </div>
+    </section>
+
+    <!-- NAZWISKA (chmura, pobierana w SSR) -->
+    <section v-if="surnames?.length" class="mx-auto w-full max-w-6xl px-6 pb-12">
+      <div class="rounded-3xl border border-slate-200 bg-white/70 px-8 py-10 text-center shadow-sm backdrop-blur">
+        <h2 class="text-xl font-bold tracking-tight text-slate-800 sm:text-2xl">Nazwiska w rodzinie</h2>
+        <p class="mt-1 text-sm text-slate-500">20 najczęściej występujących nazwisk w drzewie.</p>
+        <div class="mt-6 flex flex-wrap items-baseline justify-center gap-x-5 gap-y-2">
+          <span
+            v-for="s in surnames"
+            :key="s.surname"
+            :style="{ fontSize: sizeFor(s.count) }"
+            :title="`${s.count} osób`"
+            class="font-semibold leading-tight text-slate-700 transition hover:text-amber-600"
+          >
+            {{ s.surname }}<span class="ml-0.5 align-super text-[10px] font-normal text-slate-400">{{ s.count }}</span>
+          </span>
         </div>
       </div>
-      <TreeCanvas
-        v-else
-        ref="treeRef"
-        :layout="layout"
-        :focal-id="focalId"
-        :can-expand-up="canExpandUp"
-        :can-expand-down="canExpandDown"
-        @select="(id) => (modalId = id)"
-        @recenter="(id) => focusOn(id, true)"
-        @expand-up="expandUp"
-        @expand-down="expandDown"
-        @add-parent="onAddParent"
-        @add-relative="openAddMenu"
-      />
+    </section>
 
-      <!-- legenda -->
-      <div class="pointer-events-none absolute left-4 top-4 rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-500 shadow-sm backdrop-blur">
-        <div class="mb-1 font-medium text-slate-600">Sterowanie</div>
-        <div>Klik kafelka → szczegóły · dwuklik → centruj</div>
-        <div>▲ / ▼ → rozwiń rodziców / dzieci · scroll → zoom</div>
-        <div class="mt-1.5 flex items-center gap-3 border-t border-slate-100 pt-1.5">
-          <span class="flex items-center gap-1"><span class="inline-block h-[3px] w-4 rounded" style="background:#e11d48"></span> ślub</span>
-          <span class="flex items-center gap-1"><span class="inline-block h-[3px] w-4 rounded" style="background:#0d9488"></span> partner</span>
+    <!-- FUNKCJE -->
+    <section class="mx-auto w-full max-w-6xl px-6 pb-20">
+      <div class="mb-10 text-center">
+        <h2 class="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">Co znajdziesz w środku</h2>
+        <p class="mt-2 text-slate-500">Wszystko, czego potrzeba, by historia rodziny żyła i rosła.</p>
+      </div>
+      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div
+          v-for="f in features"
+          :key="f.title"
+          class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+        >
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-2xl">
+            {{ f.icon }}
+          </div>
+          <h3 class="mt-4 text-base font-semibold text-slate-800">{{ f.title }}</h3>
+          <p class="mt-1.5 text-sm leading-relaxed text-slate-500">{{ f.desc }}</p>
         </div>
       </div>
-    </main>
 
-    <PersonSheet
-      v-if="displayMode === 'sheet'"
-      :individual-id="modalId"
-      @close="modalId = null"
-      @recenter="onRecenter"
-      @changed="onPersonChanged"
-    />
-    <PersonModal
-      v-else
-      :individual-id="modalId"
-      @close="modalId = null"
-      @recenter="onRecenter"
-      @changed="onPersonChanged"
-    />
-
-    <AddRelativeMenu :open="addMenu" @close="addMenu = null" @pick="onAddRelative" />
-
-    <!-- toast aplikacyjny (zamiast natywnego dialogu) -->
-    <div
-      v-if="toast"
-      class="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-slate-800 px-4 py-2.5 text-sm text-white shadow-lg"
-    >
-      {{ toast }}
-    </div>
+      <!-- domknięcie -->
+      <div class="mt-14 rounded-3xl bg-gradient-to-br from-amber-500 to-amber-600 px-8 py-12 text-center text-white shadow-sm">
+        <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">Twórzmy je razem</h2>
+        <p class="mx-auto mt-3 max-w-xl text-amber-50">
+          Im więcej rąk, tym pełniejsze drzewo. Dodaj zdjęcia, uzupełnij daty, opowiedz historię —
+          a inni wrócą, by zobaczyć, co nowego u rodziny.
+        </p>
+        <a
+          href="#dostep"
+          class="mt-6 inline-block rounded-lg bg-white px-6 py-3 text-sm font-semibold text-amber-600 shadow-sm transition hover:bg-amber-50"
+        >
+          Dołącz do drzewa
+        </a>
+      </div>
+    </section>
   </div>
 </template>

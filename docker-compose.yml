@@ -30,6 +30,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mailhog:
+        condition: service_started
     environment:
       PORT: "5201"
       NODE_ENV: production
@@ -43,7 +45,19 @@ services:
       JWT_EXPIRES_IN: 7d
       SEED_ADMIN_EMAIL: admin@rodno.local
       SEED_ADMIN_PASSWORD: admin123
+      TOKEN_TTL_HOURS: "24"
       WEB_ORIGIN: http://localhost:5200
+      # Bazowy adres frontu do linków w mailach (widziany z przeglądarki użytkownika).
+      APP_PUBLIC_URL: http://localhost:5200
+      # Branding maili (open source — podmień pod swoją rodzinę).
+      APP_NAME: Rodno
+      FAMILY_NAME: Szejna
+      # SMTP → Mailhog (UI na http://localhost:5206). Powiadomienia o prośbach do admina.
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      SMTP_SECURE: "false"
+      MAIL_FROM: Rodno <no-reply@rodno.local>
+      ADMIN_NOTIFY_EMAIL: admin@rodno.local
       # Auto-import drzewa, jeśli plik jest zamontowany (idempotentny).
       AUTO_IMPORT: "true"
       TREE_NAME: szejna
@@ -73,8 +87,26 @@ services:
       PORT: "5200"
       # Adres API widziany z PRZEGLĄDARKI (fetch jest po stronie klienta) → localhost:5201.
       NUXT_PUBLIC_API_BASE: http://localhost:5201/api
+      # Slug drzewa ładowanego po zalogowaniu (musi istnieć w bazie).
+      NUXT_PUBLIC_TREE_NAME: szejna
+      # Treści strony publicznej (open source — podmień pod swoją rodzinę).
+      NUXT_PUBLIC_APP_TITLE: Rodno
+      NUXT_PUBLIC_FAMILY_NAME: Szejna
+      NUXT_PUBLIC_TAGLINE: Drzewo genealogiczne rodziny Szejna
+      NUXT_PUBLIC_DESCRIPTION: Prywatne, rodzinne drzewo genealogiczne. Dostęp wymaga potwierdzenia tożsamości.
+      NUXT_PUBLIC_CONTACT_EMAIL: admin@rodno.local
     ports:
       - "5200:5200"
+
+  # Mailhog — przechwytuje maile w dev (link weryfikacyjny, reset hasła, powiadomienia).
+  # SMTP na 5205 (kontener 1025), UI na http://localhost:5206 (kontener 8025).
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: rodno-mailhog
+    restart: unless-stopped
+    ports:
+      - "5205:1025"
+      - "5206:8025"
 
   # MinIO — storage S3-compatible na media (spec §9). Bucket publiczny do odczytu,
   # żeby przeglądarka mogła pobrać zdjęcia bez podpisów.

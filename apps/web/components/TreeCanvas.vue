@@ -173,6 +173,18 @@ function roleRing(node: PositionedNode): string {
           </span>
           <span class="h-[7px] w-px bg-slate-300"></span>
         </button>
+        <!-- brak rodziców w drzewie (np. małżonek) → ikonka „otwórz drzewo tej osoby" (centruj) -->
+        <button
+          v-else-if="node.role !== 'focal'"
+          class="absolute -top-[16px] right-3 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-slate-300 bg-white text-slate-400 shadow-sm transition hover:border-amber-400 hover:text-amber-600"
+          title="Otwórz drzewo tej osoby"
+          @click.stop="emit('recenter', node.card.id)"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="h-2.5 w-2.5">
+            <circle cx="12" cy="12" r="3.2" />
+            <path d="M12 2.5v3.3M12 18.2v3.3M2.5 12h3.3M18.2 12h3.3" />
+          </svg>
+        </button>
 
         <div
           class="group relative flex h-full cursor-pointer items-center gap-2 overflow-hidden rounded-xl border px-2.5 py-1.5 transition hover:shadow-md"
@@ -204,9 +216,21 @@ function roleRing(node: PositionedNode): string {
               />
               <span v-else>{{ initials(node.card) }}</span>
             </div>
-            <!-- badge LinkedIn (klik → profil, w nowej karcie) -->
+            <!-- badge social (klik → profil, w nowej karcie). Facebook ma pierwszeństwo nad LinkedIn. -->
             <a
-              v-if="node.card.linkedinUrl"
+              v-if="node.card.facebookUrl"
+              :href="node.card.facebookUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-[5px] bg-[#1877f2] text-white shadow ring-2 ring-white transition hover:brightness-110"
+              title="Profil Facebook"
+              @click.stop
+              @dblclick.stop
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" class="h-3 w-3"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07c0 6.02 4.39 11.01 10.13 11.93v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.08 24 18.09 24 12.07z"/></svg>
+            </a>
+            <a
+              v-else-if="node.card.linkedinUrl"
               :href="node.card.linkedinUrl"
               target="_blank"
               rel="noopener noreferrer"

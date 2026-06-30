@@ -172,6 +172,9 @@ export class TreeGraph {
 
   layout(focalId: string): TreeLayout {
     const pos = new Map<string, PositionedNode>();
+    // Relacja dziecko→para wprost z lasu potomków — działa też dla liści,
+    // których własny bundle nie został pobrany (this.parents ich nie zna).
+    const kidParents = new Map<string, { p1: string; p2: string | null }>();
     if (!this.cards.has(focalId)) {
       return { nodes: [], links: [], placeholders: [], width: 0, height: 0 };
     }
@@ -319,14 +322,20 @@ export class TreeGraph {
           pos.set(n.right.spouseId, { card: this.cards.get(n.right.spouseId)!, x: rsX, y, role: 'spouse' });
           rightmost = Math.max(rightmost, rsX + CARD_W);
         }
-        if (g.rightCenter !== null) placeKids(n.right.kids, personX + g.rightCenter, depth + 1);
+        if (g.rightCenter !== null) {
+          for (const k of n.right.kids) kidParents.set(k.id, { p1: n.id, p2: n.right.spouseId });
+          placeKids(n.right.kids, personX + g.rightCenter, depth + 1);
+        }
       }
       if (n.left) {
         if (n.left.spouseId && g.lsLeft !== null) {
           const lsX = personX + g.lsLeft;
           pos.set(n.left.spouseId, { card: this.cards.get(n.left.spouseId)!, x: lsX, y, role: 'spouse' });
         }
-        if (g.leftCenter !== null) placeKids(n.left.kids, personX + g.leftCenter, depth + 1);
+        if (g.leftCenter !== null) {
+          for (const k of n.left.kids) kidParents.set(k.id, { p1: n.id, p2: n.left.spouseId });
+          placeKids(n.left.kids, personX + g.leftCenter, depth + 1);
+        }
       }
       for (const exId of n.extras) {
         const exX = rightmost + SPOUSE_GAP;
@@ -425,36 +434,39 @@ export class TreeGraph {
     // Łączniki dziecko → rodzice. Grupujemy po parze rodziców: gdy rodzice OBOK siebie,
     // kreska od środka linii pary; gdy DALEKO (wiele związków), od kolorowej linii pary
     // nad środkiem dzieci (nie spod małżonka). Pojedynczy rodzic → spod niego.
-    const families = new Map<string, { fId: string | null; mId: string | null; kids: PositionedNode[] }>();
+    const families = new Map<string, { aId: string | null; bId: string | null; kids: PositionedNode[] }>();
     for (const [childId, c] of pos) {
+      // Najpierw las (zna każde umieszczone dziecko), potem fallback na bundle (strona pedigree).
+      const fp = kidParents.get(childId);
       const rel = this.parents.get(childId);
-      if (!rel) continue;
-      const fId = rel.fatherId && pos.has(rel.fatherId) ? rel.fatherId : null;
-      const mId = rel.motherId && pos.has(rel.motherId) ? rel.motherId : null;
-      if (!fId && !mId) continue;
-      const key = `${fId ?? ''}|${mId ?? ''}`;
+      const p1 = fp ? fp.p1 : rel?.fatherId ?? null;
+      const p2 = fp ? fp.p2 : rel?.motherId ?? null;
+      const aId = p1 && pos.has(p1) ? p1 : null;
+      const bId = p2 && pos.has(p2) ? p2 : null;
+      if (!aId && !bId) continue;
+      const key = [aId ?? '', bId ?? ''].sort().join('|'); // kolejność rodziców bez znaczenia
       let g = families.get(key);
       if (!g) {
-        g = { fId, mId, kids: [] };
+        g = { aId, bId, kids: [] };
         families.set(key, g);
       }
       g.kids.push(c);
     }
     for (const g of families.values()) {
-      const f = g.fId ? pos.get(g.fId) : undefined;
-      const m = g.mId ? pos.get(g.mId) : undefined;
+      const a = g.aId ? pos.get(g.aId) : undefined;
+      const b = g.bId ? pos.get(g.bId) : undefined;
       let x2: number;
       let y2: number;
-      if (f && m) {
-        y2 = Math.min(f.y, m.y) + CARD_H / 2; // wysokość linii pary
-        if (Math.abs(f.x - m.x) <= CARD_W + 3 * SPOUSE_GAP) {
-          x2 = (cx(f) + cx(m)) / 2; // para obok siebie → środek pary
+      if (a && b) {
+        y2 = Math.min(a.y, b.y) + CARD_H / 2; // wysokość linii pary
+        if (Math.abs(a.x - b.x) <= CARD_W + 3 * SPOUSE_GAP) {
+          x2 = (cx(a) + cx(b)) / 2; // para obok siebie → środek pary
         } else {
           const kc = (Math.min(...g.kids.map(cx)) + Math.max(...g.kids.map(cx))) / 2;
           x2 = kc; // para daleko → punkt na linii nad środkiem dzieci
         }
       } else {
-        const p = (f ?? m)!;
+        const p = (a ?? b)!;
         x2 = cx(p);
         y2 = p.y + CARD_H;
       }

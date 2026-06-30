@@ -4,6 +4,7 @@ import {
   EVENT_CATEGORY_LABELS_PL,
   eventTypeLabelPl,
   eventTypeHasParticipants,
+  isCoupleEventType,
   formatGedcomDatePl,
   type EventCategory,
   type EventDto,
@@ -20,8 +21,9 @@ const api = useApi();
 const { success, error } = useToast();
 const { ask } = useConfirm();
 
-const events = ref<EventDto[]>([...props.person.events]);
-watch(() => props.person.events, (v) => (events.value = [...v]));
+// zdarzenia pary (ślub/rozwód) są na ekranie „Dane", nie na osi czasu
+const events = ref<EventDto[]>(props.person.events.filter((e) => !isCoupleEventType(e.type)));
+watch(() => props.person.events, (v) => (events.value = v.filter((e) => !isCoupleEventType(e.type))));
 
 const ROLES: Array<{ value: string; label: string }> = [
   { value: 'godfather', label: 'Ojciec chrzestny' },
@@ -38,6 +40,7 @@ const categories = computed(() => {
   const groups: Array<{ key: EventCategory; label: string; items: typeof EVENT_TYPE_CATALOG }> = [];
   for (const def of EVENT_TYPE_CATALOG) {
     if (def.hidden) continue; // np. CHR — duplikat „Chrzest", tylko do etykiet
+    if (def.category === 'family') continue; // ślub/rozwód → ekran „Dane"
     let g = groups.find((x) => x.key === def.category);
     if (!g) {
       g = { key: def.category, label: EVENT_CATEGORY_LABELS_PL[def.category], items: [] };

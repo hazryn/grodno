@@ -96,6 +96,30 @@ export function useApi() {
 
     deleteMedia: (mediaId: string) => send<void>(`/media/${mediaId}`, 'DELETE'),
 
+    addMarriage: (id: string, body: { spouseId: string; type?: string }) =>
+      send<IndividualDto>(`/individuals/${id}/marriages`, 'POST', body),
+
+    patchMarriage: (
+      id: string,
+      pid: string,
+      body: {
+        spouseId?: string | null;
+        type?: string;
+        date?: GedcomDateValue | null;
+        dateRaw?: string | null;
+        placeName?: string | null;
+      },
+    ) => send<IndividualDto>(`/individuals/${id}/marriages/${pid}`, 'PATCH', body),
+
+    deleteMarriage: (id: string, pid: string) =>
+      send<IndividualDto>(`/individuals/${id}/marriages/${pid}`, 'DELETE'),
+
+    uploadMarriagePhoto: (id: string, pid: string, file: Blob, filename = 'slub.jpg') => {
+      const fd = new FormData();
+      fd.append('file', file, filename);
+      return send<IndividualDto>(`/individuals/${id}/marriages/${pid}/photo`, 'POST', fd);
+    },
+
     addEvent: (id: string, ev: EventPatch) =>
       send<EventDto>(`/individuals/${id}/events`, 'POST', ev),
 

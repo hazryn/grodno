@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import VueEasyLightbox from 'vue-easy-lightbox';
-import { eventTypeLabelPl, formatGedcomDatePl, type IndividualDto, type EventDto, type WorkExperience } from '@rodno/shared';
+import { eventTypeLabelPl, formatGedcomDatePl, isCoupleEventType, type IndividualDto, type EventDto, type WorkExperience } from '@rodno/shared';
 
 const props = defineProps<{ individualId: string | null }>();
 const emit = defineEmits<{
@@ -61,6 +61,8 @@ function onAvatarSaved(updated: IndividualDto) {
 }
 
 const eventLabel = (e: EventDto) => eventTypeLabelPl(e.type);
+// zdarzenia pary (ślub itp.) są na ekranie „Dane", nie na osi czasu
+const visibleEvents = computed(() => data.value?.events.filter((e) => !isCoupleEventType(e.type)) ?? []);
 const ROLE_LABELS: Record<string, string> = {
   godfather: 'Ojciec chrzestny', godmother: 'Matka chrzestna', godparent: 'Chrzestny/a',
   witness: 'Świadek', officiant: 'Celebrans', other: 'Uczestnik',
@@ -98,7 +100,8 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
 
     <template v-else-if="data">
       <!-- nagłówek -->
-      <div class="flex items-start gap-4 border-b border-slate-100 p-5">
+      <div class="border-b border-slate-100 p-5">
+        <div class="flex flex-wrap items-start gap-x-4 gap-y-3">
         <div class="relative shrink-0">
           <div
             class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full text-lg font-bold"
@@ -131,8 +134,9 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
           <p v-if="data.names.length > 1" class="mt-1 text-xs text-slate-400">
             także: {{ data.names.slice(1).map((n) => n.full).join(', ') }}
           </p>
-          <!-- kontakt / social -->
-          <div v-if="data.linkedinUrl || data.xUrl || data.facebookUrl || data.instagramUrl || data.emails.length" class="mt-2 flex flex-wrap items-center gap-1.5">
+        </div>
+        <!-- kontakt / social: pełna szerokość, do lewej -->
+        <div v-if="data.linkedinUrl || data.xUrl || data.facebookUrl || data.instagramUrl || data.emails.length" class="order-last mt-1 flex w-full basis-full flex-wrap items-center gap-1.5">
             <a
               v-if="data.facebookUrl"
               :href="data.facebookUrl"
@@ -188,7 +192,6 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
               {{ m }}
             </a>
           </div>
-        </div>
         <div class="flex shrink-0 items-center gap-1">
           <button
             class="rounded-lg px-2.5 py-1.5 text-sm font-medium transition"
@@ -198,6 +201,7 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
             {{ editing ? 'Gotowe' : 'Edytuj' }}
           </button>
           <button class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" @click="emit('close')">✕</button>
+        </div>
         </div>
       </div>
 
@@ -218,7 +222,10 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
           </button>
         </nav>
         <div class="flex-1 overflow-y-auto p-5">
-          <PersonEditForm v-if="editTab === 'basic'" :person="data" section="basic" @saved="onUpdated" />
+          <div v-if="editTab === 'basic'" class="space-y-6">
+            <PersonEditForm :person="data" section="basic" @saved="onUpdated" />
+            <PersonMarriages :person="data" @changed="onUpdated" />
+          </div>
           <PersonEditForm v-else-if="editTab === 'contact'" :person="data" section="contact" @saved="onUpdated" />
           <PersonTimelineEditor v-else-if="editTab === 'timeline'" :person="data" @changed="onUpdated" />
           <PersonGallery v-else-if="editTab === 'gallery'" :person="data" @avatar-changed="onUpdated" />
@@ -282,7 +289,7 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
         <section>
           <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Oś czasu</h3>
           <ol class="relative space-y-3 border-l-2 border-slate-100 pl-5">
-            <li v-for="ev in data.events" :key="ev.id" class="relative">
+            <li v-for="ev in visibleEvents" :key="ev.id" class="relative">
               <span class="absolute -left-[27px] top-1 h-3 w-3 rounded-full border-2 border-white bg-slate-300"></span>
               <div class="flex flex-wrap items-baseline gap-x-2">
                 <span class="text-sm font-medium text-slate-700">{{ eventLabel(ev) }}</span>
@@ -302,7 +309,7 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
                 </li>
               </ul>
             </li>
-            <li v-if="!data.events.length" class="text-sm text-slate-400">Brak zdarzeń.</li>
+            <li v-if="!visibleEvents.length" class="text-sm text-slate-400">Brak zdarzeń.</li>
           </ol>
         </section>
       </div>

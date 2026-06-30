@@ -39,6 +39,22 @@ function addEmail() {
 function removeEmail(i: number) {
   emails.value = emails.value.filter((_, idx) => idx !== i);
 }
+// drag-sort e-maili (natywny HTML5 DnD)
+const emailDrag = ref<number | null>(null);
+function eDragStart(i: number) {
+  emailDrag.value = i;
+}
+function eDragOver(i: number) {
+  if (emailDrag.value === null || emailDrag.value === i) return;
+  const a = [...emails.value];
+  const [m] = a.splice(emailDrag.value, 1);
+  a.splice(i, 0, m);
+  emails.value = a;
+  emailDrag.value = i;
+}
+function eDragEnd() {
+  emailDrag.value = null;
+}
 function addMarried() {
   if (marriedSurnames.value.length < 4) marriedSurnames.value = [...marriedSurnames.value, ''];
 }
@@ -146,7 +162,21 @@ async function save() {
 
       <div class="space-y-2">
         <span class="block text-xs font-medium text-slate-500">E-maile</span>
-        <div v-for="(_, i) in emails" :key="i" class="flex gap-2">
+        <div
+          v-for="(_, i) in emails"
+          :key="i"
+          class="flex items-center gap-2"
+          :class="{ 'opacity-40': emailDrag === i }"
+          @dragover.prevent="eDragOver(i)"
+          @drop.prevent="eDragEnd"
+        >
+          <span
+            class="cursor-move select-none text-slate-300 hover:text-slate-500"
+            title="Przeciągnij, by zmienić kolejność"
+            draggable="true"
+            @dragstart="eDragStart(i)"
+            @dragend="eDragEnd"
+          >⠿</span>
           <input v-model="emails[i]" type="email" placeholder="adres@e-mail" class="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm" />
           <button type="button" class="rounded-lg px-2 text-slate-400 hover:bg-slate-100" @click="removeEmail(i)">✕</button>
         </div>

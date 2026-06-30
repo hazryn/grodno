@@ -50,6 +50,10 @@ services:
       GEDCOM_PATH: /data/szejna.ged
       # Publiczny bazowy URL mediów (widziany z przeglądarki) → MinIO.
       MEDIA_PUBLIC_BASE: http://localhost:5203/rodno-media
+      # Poświadczenia do podpisu presigned URL (SigV4) — bucket jest prywatny.
+      MINIO_ACCESS_KEY: rodno
+      MINIO_SECRET_KEY: rodno12345
+      MINIO_REGION: us-east-1
     volumes:
       - ./data:/data:ro
     ports:
@@ -100,9 +104,9 @@ services:
       /bin/sh -c "
       until mc alias set local http://minio:9000 rodno rodno12345; do echo 'czekam na minio...'; sleep 2; done;
       mc mb -p local/rodno-media || true;
-      mc anonymous set download local/rodno-media || true;
+      mc anonymous set none local/rodno-media || true;
       mc mirror --overwrite --quiet /media local/rodno-media;
-      echo 'media wgrane do MinIO';
+      echo 'media wgrane do MinIO (bucket prywatny — dostęp tylko presigned)';
       "
     restart: "no"
 

@@ -6,6 +6,7 @@ import { ImportModule } from './import/import.module';
 import { IndividualsModule } from './individuals/individuals.module';
 import { TreesModule } from './trees/trees.module';
 import { AuthModule } from './auth/auth.module';
+import { MediaModule } from './media/media.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AuthModule } from './auth/auth.module';
         migrationsRun: process.env.DB_RUN_MIGRATIONS === 'true',
       }),
     }),
+    MediaModule,
     ImportModule,
     IndividualsModule,
     TreesModule,

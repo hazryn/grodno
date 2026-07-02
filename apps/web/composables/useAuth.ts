@@ -1,3 +1,6 @@
+// Import jawny (nie auto-import) — auto-import tego composable bywał gubiony przy HMR.
+import { useApiBase } from './useApiBase';
+
 export interface AuthUser {
   id: string;
   email: string;

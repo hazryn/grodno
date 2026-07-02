@@ -156,7 +156,7 @@
     "toastAddRelative": "{label} (for “{name}”) — editing in phase 2."
   },
   "admin": {
-    "title": "Accounts — access requests",
+    "title": "Accounts",
     "back": "← Tree",
     "loading": "Loading…",
     "empty": "No pending accounts. When someone requests access with an address not in the tree, it will appear here.",
@@ -166,7 +166,26 @@
     "noTree": "No tree — check the configuration.",
     "errorLoad": "Couldn't load the account queue.",
     "errorAssign": "Couldn't assign the person.",
-    "successAssign": "Account activated — a notification e-mail was sent."
+    "successAssign": "Assigned person saved.",
+    "statusActive": "Active",
+    "statusPending": "Pending",
+    "statusInvited": "Invited",
+    "filterAll": "All",
+    "filterPending": "Pending",
+    "filterActive": "Active",
+    "emptyAll": "No accounts.",
+    "noPerson": "— no person assigned",
+    "account": "Account",
+    "centerTree": "Center in tree",
+    "message": "Message",
+    "assignPerson": "Assign person",
+    "changePerson": "Change person",
+    "you": "You",
+    "roleAdmin": "Admin",
+    "delete": "Delete",
+    "deleteConfirm": "Delete account {name}?",
+    "successDelete": "Account deleted.",
+    "errorDelete": "Couldn't delete the account."
   },
   "settings": {
     "title": "Account settings",

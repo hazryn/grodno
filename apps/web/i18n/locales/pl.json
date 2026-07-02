@@ -156,7 +156,7 @@
     "toastAddRelative": "{label} (dla „{name}”) — edycja w fazie 2."
   },
   "admin": {
-    "title": "Konta — prośby o dostęp",
+    "title": "Konta",
     "back": "← Drzewo",
     "loading": "Wczytywanie…",
     "empty": "Brak oczekujących kont. Gdy ktoś poprosi o dostęp adresem spoza drzewa, pojawi się tutaj.",
@@ -166,7 +166,26 @@
     "noTree": "Brak drzewa — sprawdź konfigurację.",
     "errorLoad": "Nie udało się wczytać kolejki kont.",
     "errorAssign": "Nie udało się przypisać osoby.",
-    "successAssign": "Konto aktywowane — wysłano e-mail z informacją."
+    "successAssign": "Zapisano przypisaną osobę.",
+    "statusActive": "Aktywne",
+    "statusPending": "Oczekuje",
+    "statusInvited": "Zaproszony",
+    "filterAll": "Wszyscy",
+    "filterPending": "Oczekujący",
+    "filterActive": "Aktywni",
+    "emptyAll": "Brak kont.",
+    "noPerson": "— brak przypisanej osoby",
+    "account": "Konto",
+    "centerTree": "Centruj w drzewie",
+    "message": "Napisz",
+    "assignPerson": "Przypisz osobę",
+    "changePerson": "Zmień osobę",
+    "you": "To Ty",
+    "roleAdmin": "Admin",
+    "delete": "Usuń",
+    "deleteConfirm": "Usunąć konto {name}?",
+    "successDelete": "Konto usunięte.",
+    "errorDelete": "Nie udało się usunąć konta."
   },
   "settings": {
     "title": "Ustawienia konta",

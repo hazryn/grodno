@@ -156,7 +156,7 @@
     "toastAddRelative": "{label} (für „{name}”) — Bearbeitung in Phase 2."
   },
   "admin": {
-    "title": "Konten — Zugangsanfragen",
+    "title": "Konten",
     "back": "← Stammbaum",
     "loading": "Wird geladen…",
     "empty": "Keine ausstehenden Konten. Wenn jemand mit einer Adresse außerhalb des Stammbaums Zugang anfragt, erscheint es hier.",
@@ -166,7 +166,26 @@
     "noTree": "Kein Stammbaum — prüfe die Konfiguration.",
     "errorLoad": "Konto-Warteschlange konnte nicht geladen werden.",
     "errorAssign": "Person konnte nicht zugewiesen werden.",
-    "successAssign": "Konto aktiviert — eine Benachrichtigungs-E-Mail wurde gesendet."
+    "successAssign": "Zugewiesene Person gespeichert.",
+    "statusActive": "Aktiv",
+    "statusPending": "Ausstehend",
+    "statusInvited": "Eingeladen",
+    "filterAll": "Alle",
+    "filterPending": "Ausstehend",
+    "filterActive": "Aktiv",
+    "emptyAll": "Keine Konten.",
+    "noPerson": "— keine Person zugewiesen",
+    "account": "Konto",
+    "centerTree": "Im Baum zentrieren",
+    "message": "Nachricht",
+    "assignPerson": "Person zuweisen",
+    "changePerson": "Person ändern",
+    "you": "Du",
+    "roleAdmin": "Admin",
+    "delete": "Löschen",
+    "deleteConfirm": "Konto {name} löschen?",
+    "successDelete": "Konto gelöscht.",
+    "errorDelete": "Konto konnte nicht gelöscht werden."
   },
   "settings": {
     "title": "Kontoeinstellungen",

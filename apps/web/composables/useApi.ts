@@ -15,6 +15,8 @@ import type {
   PersonName,
   Sex,
 } from '@rodno/shared';
+// Import jawny (nie auto-import) — auto-import tego composable bywał gubiony przy HMR.
+import { useApiBase } from './useApiBase';
 
 export interface TreeSummary {
   id: string;
@@ -32,6 +34,33 @@ export interface PendingUser {
   lastName: string | null;
   displayName: string;
   createdAt: string;
+}
+
+/** Osoba w drzewie powiązana z kontem. */
+export interface AdminUserPerson {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  sex: Sex;
+  isLiving: boolean;
+  treeId: string;
+}
+
+/** Konto w panelu admina — zaproszone i aktywne, z powiązaną osobą. */
+export interface AdminUser {
+  id: string;
+  email: string;
+  displayName: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: string;
+  locale: string;
+  isActive: boolean;
+  emailVerified: boolean;
+  createdAt: string;
+  status: 'active' | 'pending' | 'invited';
+  individualId: string | null;
+  person: AdminUserPerson | null;
 }
 
 /** Częściowa edycja osoby (pola opcjonalne). */
@@ -97,8 +126,12 @@ export function useApi() {
 
     adminPendingUsers: () => get<PendingUser[]>('/admin/users/pending'),
 
+    adminUsers: () => get<AdminUser[]>('/admin/users'),
+
     adminAssignIndividual: (userId: string, individualId: string) =>
-      send<PendingUser>(`/admin/users/${userId}/individual`, 'PATCH', { individualId }),
+      send<AdminUser>(`/admin/users/${userId}/individual`, 'PATCH', { individualId }),
+
+    adminDeleteUser: (userId: string) => send<void>(`/admin/users/${userId}`, 'DELETE'),
 
     /* ----------------------------------- zapis ----------------------------------- */
 

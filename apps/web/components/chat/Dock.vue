@@ -3,8 +3,7 @@ const chat = useChat();
 const socket = useChatSocket();
 const push = usePush();
 const { isLoggedIn } = useAuth();
-const { t } = useI18n();
-const { openWindows, sheetOpen, totalUnread } = chat;
+const { openWindows, sheetOpen } = chat;
 
 const newChatOpen = ref(false);
 const openList = computed(() => openWindows.value.filter((w) => !w.minimized));
@@ -39,6 +38,8 @@ watch(isLoggedIn, (v) => {
 
 <template>
   <div>
+    <!-- Otwarte rozmowy (okna) + zminimalizowane (chat-heady) w prawym dolnym rogu.
+         Wejście do listy rozmów jest w headerze (ikona z licznikiem) — nie tutaj. -->
     <div class="pointer-events-none fixed bottom-0 right-0 z-40 flex items-end gap-3 p-4">
       <ChatWindow
         v-for="w in openList"
@@ -46,25 +47,12 @@ watch(isLoggedIn, (v) => {
         :conversation-id="w.conversationId"
         class="pointer-events-auto"
       />
-      <div class="pointer-events-auto flex flex-col items-center gap-2">
+      <div v-if="minimizedList.length" class="pointer-events-auto flex flex-col items-center gap-2">
         <ChatHead
           v-for="w in minimizedList"
           :key="w.conversationId"
           :conversation-id="w.conversationId"
         />
-        <button
-          class="relative flex h-14 w-14 items-center justify-center rounded-full bg-amber-500 text-2xl shadow-lg transition hover:bg-amber-600"
-          :title="t('chat.title')"
-          @click="chat.toggleSheet()"
-        >
-          💬
-          <span
-            v-if="totalUnread"
-            class="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white"
-          >
-            {{ totalUnread > 9 ? '9+' : totalUnread }}
-          </span>
-        </button>
       </div>
     </div>
 

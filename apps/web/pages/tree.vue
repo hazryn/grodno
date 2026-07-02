@@ -12,6 +12,7 @@ const route = useRoute();
 const router = useRouter();
 const config = useRuntimeConfig();
 const { user, logout, isAdmin } = useAuth();
+const { totalUnread: unreadChat, toggleSheet: toggleChat } = useChat();
 const graph = new TreeGraph();
 const layout = shallowRef<TreeLayout>({ nodes: [], links: [], width: 0, height: 0 });
 const focalId = ref('');
@@ -195,6 +196,24 @@ async function onLogout() {
         >
           {{ $t('tree.accounts') }}
         </NuxtLink>
+        <button
+          class="rounded-lg px-2.5 py-1.5 text-slate-500 transition hover:bg-slate-100"
+          :title="$t('chat.title')"
+          data-chat-toggle
+          @click="toggleChat()"
+        >
+          <span class="relative block">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3.75h6M21 12a8.25 8.25 0 0 1-11.7 7.5L3 21l1.5-4.5A8.25 8.25 0 1 1 21 12Z" />
+            </svg>
+            <span
+              v-if="unreadChat"
+              class="absolute -right-2 -top-2 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white"
+            >
+              {{ unreadChat > 9 ? '9+' : unreadChat }}
+            </span>
+          </span>
+        </button>
         <div class="flex items-center gap-2 border-l border-slate-200 pl-3">
           <span class="hidden text-sm text-slate-500 sm:inline">{{ user?.displayName }}</span>
           <CommonLanguageSwitcher />

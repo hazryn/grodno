@@ -137,6 +137,7 @@
     "treeLabel": "family tree “{name}”",
     "displayPanel": "Panel",
     "displayModal": "Window",
+    "displayModeLabel": "Open person as",
     "accounts": "Accounts",
     "settings": "Settings",
     "logout": "Log out",

@@ -5,13 +5,12 @@ import type { TreeSummary } from '../composables/useApi';
 definePageMeta({ middleware: 'auth' });
 
 const { t } = useI18n();
-const localePath = useLocalePath();
 
 const api = useApi();
 const route = useRoute();
 const router = useRouter();
 const config = useRuntimeConfig();
-const { user, logout, isAdmin } = useAuth();
+const { user } = useAuth();
 const { totalUnread: unreadChat, toggleSheet: toggleChat } = useChat();
 const graph = new TreeGraph();
 const layout = shallowRef<TreeLayout>({ nodes: [], links: [], width: 0, height: 0 });
@@ -153,51 +152,26 @@ async function onPersonChanged(id: string) {
   }
 }
 
-async function onLogout() {
-  logout();
-  await navigateTo(localePath('/login'));
-}
 </script>
 
 <template>
   <div class="flex h-screen flex-col bg-slate-50">
     <!-- header -->
-    <header class="z-10 flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 py-3 shadow-sm">
-      <div class="flex items-baseline gap-3">
-        <h1 class="text-lg font-bold tracking-tight text-slate-800">
+    <header class="z-10 flex items-center gap-4 border-b border-slate-200 bg-white px-5 py-3 shadow-sm">
+      <div class="flex min-w-0 flex-1 items-baseline gap-3">
+        <h1 class="shrink-0 text-lg font-bold tracking-tight text-slate-800">
           <span class="text-amber-500">{{ appTitle }}</span>
         </h1>
-        <span v-if="tree" class="text-sm text-slate-400">
+        <span v-if="tree" class="min-w-0 truncate text-sm text-slate-400">
           {{ $t('tree.treeLabel', { name: familyName || tree.name }) }} · {{ $t('common.peopleCount', tree.individualCount, { n: tree.individualCount }) }}
         </span>
       </div>
-      <div class="flex items-center gap-3">
-        <div class="flex rounded-lg border border-slate-200 p-0.5 text-xs font-medium">
-          <button
-            class="rounded-md px-2.5 py-1 transition"
-            :class="displayMode === 'sheet' ? 'bg-amber-100 text-amber-700' : 'text-slate-500 hover:bg-slate-50'"
-            @click="displayMode = 'sheet'"
-          >
-            {{ $t('tree.displayPanel') }}
-          </button>
-          <button
-            class="rounded-md px-2.5 py-1 transition"
-            :class="displayMode === 'modal' ? 'bg-amber-100 text-amber-700' : 'text-slate-500 hover:bg-slate-50'"
-            @click="displayMode = 'modal'"
-          >
-            {{ $t('tree.displayModal') }}
-          </button>
-        </div>
+      <div class="flex-none">
         <SearchBox v-if="tree" :tree-id="tree.id" @select="(id) => focusOn(id, true)" />
-        <NuxtLink
-          v-if="isAdmin"
-          :to="localePath('/admin/users')"
-          class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-50"
-        >
-          {{ $t('tree.accounts') }}
-        </NuxtLink>
+      </div>
+      <div class="flex flex-1 items-center justify-end gap-2">
         <button
-          class="rounded-lg px-2.5 py-1.5 text-slate-500 transition hover:bg-slate-100"
+          class="rounded-lg px-2.5 py-1.5 text-slate-500 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
           :title="$t('chat.title')"
           data-chat-toggle
           @click="toggleChat()"
@@ -214,22 +188,7 @@ async function onLogout() {
             </span>
           </span>
         </button>
-        <div class="flex items-center gap-2 border-l border-slate-200 pl-3">
-          <span class="hidden text-sm text-slate-500 sm:inline">{{ user?.displayName }}</span>
-          <CommonLanguageSwitcher />
-          <NuxtLink
-            :to="localePath('/settings')"
-            class="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100"
-          >
-            {{ $t('tree.settings') }}
-          </NuxtLink>
-          <button
-            class="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100"
-            @click="onLogout"
-          >
-            {{ $t('tree.logout') }}
-          </button>
-        </div>
+        <CommonUserMenu v-model:display-mode="displayMode" />
       </div>
     </header>
 

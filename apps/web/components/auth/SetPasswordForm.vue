@@ -21,19 +21,15 @@ function submit() {
 
 <template>
   <form class="space-y-3" @submit.prevent="submit">
-    <input
+    <CommonPasswordInput
       v-model="pw.a"
-      type="password"
       :placeholder="$t('access.password.newPlaceholder')"
       autocomplete="new-password"
-      class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
     />
-    <input
+    <CommonPasswordInput
       v-model="pw.b"
-      type="password"
       :placeholder="$t('access.password.repeatPlaceholder')"
       autocomplete="new-password"
-      class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
     />
     <button
       type="submit"

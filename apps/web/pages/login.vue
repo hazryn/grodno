@@ -12,26 +12,48 @@ const appTitle = config.public.appTitle as string;
 
 const mode = ref<'login' | 'forgot'>('login');
 const form = reactive({ email: '', password: '' });
+const errors = reactive({ email: '', password: '' });
+const formError = ref('');
 const submitting = ref(false);
 
+function switchMode(m: 'login' | 'forgot'): void {
+  mode.value = m;
+  errors.email = '';
+  errors.password = '';
+  formError.value = '';
+}
+
+function emailValid(v: string): boolean {
+  return /.+@.+\..+/.test(v);
+}
+function validateEmail(): string {
+  if (!form.email.trim()) return t('login.errorEmailRequired');
+  if (!emailValid(form.email.trim())) return t('login.errorEmailInvalid');
+  return '';
+}
+
 async function onLogin() {
+  formError.value = '';
+  errors.email = validateEmail();
+  errors.password = form.password ? '' : t('login.errorPasswordRequired');
+  if (errors.email || errors.password) return;
+
   submitting.value = true;
   try {
     await login(form.email.trim(), form.password);
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/tree';
     await navigateTo(redirect);
-  } catch (e: any) {
-    error(e?.data?.message || t('login.errorInvalid'));
+  } catch {
+    // Nigdy nie pokazujemy surowych komunikatów walidatora z API — tylko zlokalizowane.
+    formError.value = t('login.errorInvalid');
   } finally {
     submitting.value = false;
   }
 }
 
 async function onForgot() {
-  if (!form.email.trim()) {
-    error(t('login.errorEmailRequired'));
-    return;
-  }
+  errors.email = validateEmail();
+  if (errors.email) return;
   submitting.value = true;
   try {
     await forgot(form.email.trim());
@@ -57,22 +79,36 @@ async function onForgot() {
 
       <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <!-- logowanie -->
-        <form v-if="mode === 'login'" class="space-y-3" @submit.prevent="onLogin">
+        <form v-if="mode === 'login'" class="space-y-3" novalidate @submit.prevent="onLogin">
           <h1 class="text-base font-semibold text-slate-800">{{ $t('login.title') }}</h1>
-          <input
-            v-model="form.email"
-            type="email"
-            :placeholder="$t('login.emailPlaceholder')"
-            autocomplete="email"
-            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-          />
-          <input
-            v-model="form.password"
-            type="password"
-            :placeholder="$t('login.passwordPlaceholder')"
-            autocomplete="current-password"
-            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-          />
+          <div>
+            <input
+              v-model="form.email"
+              type="email"
+              :placeholder="$t('login.emailPlaceholder')"
+              autocomplete="email"
+              :aria-invalid="!!errors.email || undefined"
+              class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2"
+              :class="errors.email
+                ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-100'
+                : 'border-slate-200 focus:border-amber-400 focus:ring-amber-100'"
+              @input="errors.email = ''; formError = ''"
+            />
+            <p v-if="errors.email" class="mt-1 text-xs text-rose-600">{{ errors.email }}</p>
+          </div>
+          <div>
+            <CommonPasswordInput
+              v-model="form.password"
+              :placeholder="$t('login.passwordPlaceholder')"
+              autocomplete="current-password"
+              :invalid="!!errors.password"
+              @update:model-value="errors.password = ''; formError = ''"
+            />
+            <p v-if="errors.password" class="mt-1 text-xs text-rose-600">{{ errors.password }}</p>
+          </div>
+          <p v-if="formError" class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">
+            {{ formError }}
+          </p>
           <button
             type="submit"
             :disabled="submitting"
@@ -82,23 +118,31 @@ async function onForgot() {
           </button>
           <div class="flex items-center justify-between pt-1 text-sm">
             <NuxtLink :to="localePath('/')" class="text-slate-400 hover:text-slate-600">{{ $t('login.requestAccess') }}</NuxtLink>
-            <button type="button" class="text-amber-600 hover:text-amber-700" @click="mode = 'forgot'">
+            <button type="button" class="text-amber-600 hover:text-amber-700" @click="switchMode('forgot')">
               {{ $t('login.forgotLink') }}
             </button>
           </div>
         </form>
 
         <!-- przypomnienie hasła -->
-        <form v-else class="space-y-3" @submit.prevent="onForgot">
+        <form v-else class="space-y-3" novalidate @submit.prevent="onForgot">
           <h1 class="text-base font-semibold text-slate-800">{{ $t('login.forgotTitle') }}</h1>
           <p class="text-sm text-slate-500">{{ $t('login.forgotDescription') }}</p>
-          <input
-            v-model="form.email"
-            type="email"
-            :placeholder="$t('login.emailPlaceholder')"
-            autocomplete="email"
-            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-          />
+          <div>
+            <input
+              v-model="form.email"
+              type="email"
+              :placeholder="$t('login.emailPlaceholder')"
+              autocomplete="email"
+              :aria-invalid="!!errors.email || undefined"
+              class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2"
+              :class="errors.email
+                ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-100'
+                : 'border-slate-200 focus:border-amber-400 focus:ring-amber-100'"
+              @input="errors.email = ''"
+            />
+            <p v-if="errors.email" class="mt-1 text-xs text-rose-600">{{ errors.email }}</p>
+          </div>
           <button
             type="submit"
             :disabled="submitting"
@@ -109,7 +153,7 @@ async function onForgot() {
           <button
             type="button"
             class="w-full pt-1 text-center text-sm text-slate-400 hover:text-slate-600"
-            @click="mode = 'login'"
+            @click="switchMode('login')"
           >
             {{ $t('login.backToLogin') }}
           </button>

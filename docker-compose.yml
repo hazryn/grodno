@@ -24,6 +24,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      target: dev
       network: host
     container_name: rodno-api
     restart: unless-stopped
@@ -34,7 +35,7 @@ services:
         condition: service_started
     environment:
       PORT: "5201"
-      NODE_ENV: production
+      NODE_ENV: development
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_USER: rodno
@@ -70,6 +71,11 @@ services:
       MINIO_REGION: us-east-1
     volumes:
       - ./data:/data:ro
+      # Hot reload: źródło z hosta, node_modules zostają z obrazu (anon volumes).
+      - ./apps/api:/app/apps/api
+      - ./packages/shared:/app/packages/shared
+      - /app/apps/api/node_modules
+      - /app/packages/shared/node_modules
     ports:
       - "5201:5201"
 
@@ -77,6 +83,7 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      target: dev
       network: host
     container_name: rodno-web
     restart: unless-stopped
@@ -95,6 +102,13 @@ services:
       NUXT_PUBLIC_TAGLINE: Drzewo genealogiczne rodziny Szejna
       NUXT_PUBLIC_DESCRIPTION: Prywatne, rodzinne drzewo genealogiczne. Dostęp wymaga potwierdzenia tożsamości.
       NUXT_PUBLIC_CONTACT_EMAIL: admin@rodno.local
+    volumes:
+      # Hot reload (HMR): źródło z hosta, node_modules/.nuxt zostają z obrazu (anon volumes).
+      - ./apps/web:/app/apps/web
+      - ./packages/shared:/app/packages/shared
+      - /app/apps/web/node_modules
+      - /app/apps/web/.nuxt
+      - /app/packages/shared/node_modules
     ports:
       - "5200:5200"
 

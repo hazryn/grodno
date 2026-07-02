@@ -203,8 +203,8 @@ async function onLogout() {
           @click="toggleChat()"
         >
           <span class="relative block">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-5 w-5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3.75h6M21 12a8.25 8.25 0 0 1-11.7 7.5L3 21l1.5-4.5A8.25 8.25 0 1 1 21 12Z" />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="h-[1.35rem] w-[1.35rem]">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 12h.01m3.74 0h.01m3.74 0h.01M21 12c0 4.556-4.03 8.25-9 8.25a9.76 9.76 0 0 1-2.555-.337A5.97 5.97 0 0 1 5.41 20.97a5.97 5.97 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
             </svg>
             <span
               v-if="unreadChat"

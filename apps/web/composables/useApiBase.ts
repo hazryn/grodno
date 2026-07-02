@@ -6,7 +6,11 @@
  */
 export function useApiBase(): string {
   const config = useRuntimeConfig();
-  const serverBase = config.apiBaseServer as string | undefined;
-  if (import.meta.server && serverBase) return serverBase;
+  // `apiBaseServer` to klucz prywatny — istnieje tylko na serwerze. Na kliencie go NIE dotykamy
+  // (inaczej Nuxt sypie ostrzeżeniem), tam zawsze publiczny apiBase.
+  if (import.meta.server) {
+    const serverBase = config.apiBaseServer as string | undefined;
+    if (serverBase) return serverBase;
+  }
   return config.public.apiBase as string;
 }

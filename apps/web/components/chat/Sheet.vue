@@ -42,16 +42,17 @@ function subtitle(c: ConversationDto): string {
   if (c.lastMessagePreview) return c.lastMessagePreview;
   return c.lastMessage?.type === 'image' ? t('chat.photo') : '';
 }
-function open(convId: string): void {
+function openConv(convId: string): void {
   void chat.openConversation(convId);
   emit('close');
 }
 </script>
 
 <template>
-  <!-- Panel dropdown pod headerem, z prawej. BEZ backdropu → drzewo zostaje klikalne. -->
-  <Teleport to="body">
-    <Transition name="chat-panel">
+  <!-- Panel dropdown pod headerem, z prawej. BEZ backdropu → drzewo zostaje klikalne.
+       Uwaga: v-if="open" to PROP (nie myl z funkcją) — dlatego akcja otwarcia rozmowy
+       nazywa się openConv, a nie open (kolizja nazw dawała v-if zawsze prawdziwe). -->
+  <Transition name="chat-panel">
       <div
         v-if="open"
         ref="panelRef"
@@ -84,7 +85,7 @@ function open(convId: string): void {
             v-for="c in sortedConversations"
             :key="c.id"
             class="flex w-full items-center gap-3 border-b border-slate-50 px-4 py-3 text-left hover:bg-slate-50"
-            @click="open(c.id)"
+            @click="openConv(c.id)"
           >
             <ChatAvatar
               :photo-url="convPhoto(c)"
@@ -109,8 +110,7 @@ function open(convId: string): void {
           </button>
         </div>
       </div>
-    </Transition>
-  </Teleport>
+  </Transition>
 </template>
 
 <style scoped>

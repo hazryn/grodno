@@ -1,13 +1,15 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { createHash, randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcryptjs';
+import { formatPersonName, normalizeLocale, type Locale, type Sex } from '@rodno/shared';
 import { Individual, User } from '../database/entities';
 import type { UserTokenType } from '../database/entities/user.entity';
 import { AuthService, type LoginResult } from '../auth/auth.service';
 import { UsersService } from '../auth/users.service';
 import { MailService } from '../mail/mail.service';
+import { MediaService } from '../media/media.service';
 
 export interface PendingUserDto {
   id: string;
@@ -16,6 +18,34 @@ export interface PendingUserDto {
   lastName: string | null;
   displayName: string;
   createdAt: Date;
+}
+
+/** Osoba w drzewie powiązana z kontem (widok w panelu admina). */
+export interface AdminUserPersonDto {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  sex: Sex;
+  isLiving: boolean;
+  treeId: string;
+}
+
+/** Konto w panelu admina — zaproszone i aktywne (łącznie z powiązaną osobą). */
+export interface AdminUserDto {
+  id: string;
+  email: string;
+  displayName: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: string;
+  locale: string;
+  isActive: boolean;
+  emailVerified: boolean;
+  createdAt: Date;
+  /** 'active' — ma dostęp; 'pending' — potwierdził mail, czeka na przypisanie; 'invited' — jeszcze nie potwierdził. */
+  status: 'active' | 'pending' | 'invited';
+  individualId: string | null;
+  person: AdminUserPersonDto | null;
 }
 
 export type ConfirmResult =
@@ -31,6 +61,7 @@ export class AccessService {
     private readonly users: UsersService,
     private readonly auth: AuthService,
     private readonly mail: MailService,
+    private readonly media: MediaService,
   ) {}
 
   /* --------------------------------- prośba o dostęp --------------------------------- */
@@ -143,25 +174,82 @@ export class AccessService {
     }));
   }
 
-  /** Przypisanie konta do osoby w drzewie → aktywacja + mail „możesz się zalogować". */
-  async assignIndividual(userId: string, individualId: string): Promise<PendingUserDto> {
+  /** Wszystkie konta (zaproszone + aktywne) z powiązaną osobą — panel admina. */
+  async listAllUsers(locale: Locale = 'pl'): Promise<AdminUserDto[]> {
+    const users = await this.users.listAll();
+    const indiIds = [
+      ...new Set(users.map((u) => u.individualId).filter((x): x is string => !!x)),
+    ];
+    const indis = indiIds.length
+      ? await this.individuals.find({ where: { id: In(indiIds) } })
+      : [];
+    const byId = new Map(indis.map((i) => [i.id, i]));
+    return users.map((u) => this.toAdminUserDto(u, byId, locale));
+  }
+
+  private toAdminUserDto(u: User, byId: Map<string, Individual>, locale: Locale): AdminUserDto {
+    const indi = u.individualId ? byId.get(u.individualId) : null;
+    const status: AdminUserDto['status'] = u.isActive
+      ? 'active'
+      : u.emailVerified
+        ? 'pending'
+        : 'invited';
+    return {
+      id: u.id,
+      email: u.email,
+      displayName: u.displayName,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      role: u.role,
+      locale: u.locale,
+      isActive: u.isActive,
+      emailVerified: u.emailVerified,
+      createdAt: u.createdAt,
+      status,
+      individualId: u.individualId,
+      person: indi
+        ? {
+            id: indi.id,
+            name: formatPersonName(indi.names, locale) || indi.primaryName,
+            photoUrl: this.media.presign(indi.photoUrl),
+            sex: indi.sex,
+            isLiving: indi.isLiving,
+            treeId: indi.treeId,
+          }
+        : null,
+    };
+  }
+
+  /**
+   * Przypisanie/zmiana osoby powiązanej z kontem. Pierwsza aktywacja (konto było nieaktywne)
+   * wysyła mail „możesz się zalogować"; sama zmiana osoby na aktywnym koncie — bez maila.
+   */
+  async assignIndividual(
+    userId: string,
+    individualId: string,
+    locale: Locale = 'pl',
+  ): Promise<AdminUserDto> {
     const user = await this.users.findById(userId);
     if (!user) throw new NotFoundException('Konto nie istnieje');
     const individual = await this.individuals.findOne({ where: { id: individualId } });
     if (!individual) throw new NotFoundException('Osoba nie istnieje');
 
+    const wasInactive = !user.isActive;
     user.individualId = individual.id;
     user.isActive = true;
     const saved = await this.users.save(user);
-    await this.mail.sendApproved(saved.email, saved.locale);
-    return {
-      id: saved.id,
-      email: saved.email,
-      firstName: saved.firstName,
-      lastName: saved.lastName,
-      displayName: saved.displayName,
-      createdAt: saved.createdAt,
-    };
+    if (wasInactive) await this.mail.sendApproved(saved.email, saved.locale);
+    return this.toAdminUserDto(saved, new Map([[individual.id, individual]]), locale);
+  }
+
+  /** Usunięcie konta (admin). Nie można usunąć własnego. Członkostwa/reakcje/push kaskadują (FK). */
+  async deleteUser(userId: string, requesterId: string): Promise<void> {
+    if (userId === requesterId) {
+      throw new BadRequestException('Nie można usunąć własnego konta.');
+    }
+    const user = await this.users.findById(userId);
+    if (!user) throw new NotFoundException('Konto nie istnieje');
+    await this.users.delete(userId);
   }
 
   /* --------------------------------- helpers --------------------------------- */

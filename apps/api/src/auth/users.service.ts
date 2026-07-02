@@ -58,4 +58,13 @@ export class UsersService implements OnModuleInit {
       order: { createdAt: 'ASC' },
     });
   }
+
+  /** Wszystkie konta (panel admina) — najnowsze najpierw. */
+  listAll(): Promise<User[]> {
+    return this.repo.find({ order: { createdAt: 'DESC' } });
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.repo.delete(id);
+  }
 }

@@ -13,11 +13,28 @@ const emit = defineEmits<{
 }>();
 
 const api = useApi();
+const { user } = useAuth();
+const chat = useChat();
+const { error } = useToast();
 const data = ref<IndividualDto | null>(null);
 const loading = ref(false);
 const editing = ref(false);
 const avatarModal = ref(false);
 const avatarLb = ref(false); // lightbox powiększenia avatara
+
+// „Napisz wiadomość": tylko żyjąca osoba z kontem, i nie do samego siebie.
+const canMessage = computed(
+  () =>
+    !!data.value &&
+    data.value.isLiving &&
+    data.value.hasAccount &&
+    data.value.id !== user.value?.individualId,
+);
+async function message(): Promise<void> {
+  if (!data.value) return;
+  const ok = await chat.openDirectByIndividual(data.value.id);
+  if (!ok) error(t('chat.notContactable'));
+}
 
 type EditTab = 'basic' | 'contact' | 'timeline' | 'gallery';
 const editTab = ref<EditTab>('basic');
@@ -195,6 +212,13 @@ watch(() => props.individualId, () => (brokenLogos.value = new Set()));
             </a>
           </div>
         <div class="flex shrink-0 items-center gap-1">
+          <button
+            v-if="canMessage"
+            class="rounded-lg bg-amber-500 px-2.5 py-1.5 text-sm font-medium text-white transition hover:bg-amber-600"
+            @click="message"
+          >
+            {{ $t('chat.newMessage') }}
+          </button>
           <button
             class="rounded-lg px-2.5 py-1.5 text-sm font-medium transition"
             :class="editing ? 'bg-sky-600 text-white hover:bg-sky-700' : 'text-sky-700 hover:bg-sky-50'"

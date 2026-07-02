@@ -1,6 +1,11 @@
 import type {
   Bundle,
   BundlePayload,
+  ChatAttachmentDto,
+  ChatContact,
+  ChatMessageDto,
+  ChatTranslationDto,
+  ConversationDto,
   EventDto,
   GedcomDateValue,
   IndividualDto,
@@ -158,5 +163,49 @@ export function useApi() {
       send<EventDto>(`/events/${eventId}`, 'PATCH', ev),
 
     deleteEvent: (eventId: string) => send<void>(`/events/${eventId}`, 'DELETE'),
+
+    /* ----------------------------------- czat ----------------------------------- */
+
+    chatContacts: () => get<ChatContact[]>('/chat/contacts'),
+    conversations: () => get<ConversationDto[]>('/chat/conversations'),
+    conversation: (id: string) => get<ConversationDto>(`/chat/conversations/${id}`),
+    createDirect: (userId: string) =>
+      send<ConversationDto>('/chat/conversations/direct', 'POST', { userId }),
+    createGroup: (title: string, userIds: string[]) =>
+      send<ConversationDto>('/chat/conversations/group', 'POST', { title, userIds }),
+    renameGroup: (id: string, title: string) =>
+      send<ConversationDto>(`/chat/conversations/${id}`, 'PATCH', { title }),
+    addParticipants: (id: string, userIds: string[]) =>
+      send<ConversationDto>(`/chat/conversations/${id}/participants`, 'POST', { userIds }),
+    removeParticipant: (id: string, userId: string) =>
+      send<void>(`/chat/conversations/${id}/participants/${userId}`, 'DELETE'),
+    chatMessages: (id: string, before?: number) =>
+      get<ChatMessageDto[]>(
+        `/chat/conversations/${id}/messages?limit=30${before ? `&before=${before}` : ''}`,
+      ),
+    sendMessage: (
+      id: string,
+      body: { body?: string; replyToId?: string; attachmentIds?: string[] },
+    ) => send<ChatMessageDto>(`/chat/conversations/${id}/messages`, 'POST', body),
+    uploadChatImages: (id: string, files: File[]) => {
+      const fd = new FormData();
+      for (const f of files) fd.append('files', f, f.name);
+      return send<ChatAttachmentDto[]>(`/chat/conversations/${id}/attachments`, 'POST', fd);
+    },
+    markRead: (id: string, messageId: string) =>
+      send<void>(`/chat/conversations/${id}/read`, 'POST', { messageId }),
+    editMessage: (id: string, body: string) =>
+      send<ChatMessageDto>(`/chat/messages/${id}`, 'PATCH', { body }),
+    deleteMessage: (id: string) => send<void>(`/chat/messages/${id}`, 'DELETE'),
+    addReaction: (id: string, emoji: string) =>
+      send<void>(`/chat/messages/${id}/reactions`, 'POST', { emoji }),
+    removeReaction: (id: string, emoji: string) =>
+      send<void>(`/chat/messages/${id}/reactions?emoji=${encodeURIComponent(emoji)}`, 'DELETE'),
+    translateMessage: (id: string, locale: string) =>
+      get<ChatTranslationDto>(`/chat/messages/${id}/translation?locale=${locale}`),
+    pushSubscribe: (sub: { endpoint: string; keys: { p256dh: string; auth: string }; userAgent?: string }) =>
+      send<void>('/chat/push/subscribe', 'POST', sub),
+    pushUnsubscribe: (endpoint: string) =>
+      send<void>('/chat/push/subscribe', 'DELETE', { endpoint }),
   };
 }

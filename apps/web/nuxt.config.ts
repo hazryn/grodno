@@ -38,6 +38,10 @@ export default defineNuxtConfig({
       appTitle: process.env.NUXT_PUBLIC_APP_TITLE || 'Rodno',
       familyName: process.env.NUXT_PUBLIC_FAMILY_NAME || '',
       contactEmail: process.env.NUXT_PUBLIC_CONTACT_EMAIL || '',
+      // WebSocket czatu (Socket.IO). Puste = wyprowadź z apiBase (origin bez /api).
+      wsBase: process.env.NUXT_PUBLIC_WS_BASE || '',
+      // Klucz publiczny VAPID do web push (klucz prywatny zostaje po stronie API).
+      vapidPublicKey: process.env.NUXT_PUBLIC_VAPID_PUBLIC_KEY || '',
     },
   },
   app: {

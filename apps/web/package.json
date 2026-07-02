@@ -16,6 +16,7 @@
   "dependencies": {
     "@nuxtjs/i18n": "^10.4.0",
     "@rodno/shared": "workspace:*",
+    "socket.io-client": "^4.8.3",
     "vue-advanced-cropper": "^2.8.9",
     "vue-easy-lightbox": "^1.19.0"
   },

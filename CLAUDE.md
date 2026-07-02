@@ -26,3 +26,17 @@ web `5200`, api `5201`, postgres `5202`, MinIO `5203`/`5204`.
 
 `data/` (GEDCOM, media) jest **gitignored** i NIE trafia do repo ani na zdalne usługi.
 Hasło do bazy webtrees nie ląduje w śledzonych plikach.
+
+## Commity — Conventional Commits, PO ANGIELSKU
+
+Format: `<type>(<scope>): <subject>`. **Subject i opis piszemy po angielsku**, w trybie
+rozkazującym (imperative: „add", „fix", nie „added"/„fixes").
+
+- Typy: `feat`, `fix`, `refactor`, `chore`, `docs`.
+- **Scope w nawiasach tylko `api` lub `web`** — wskazuje część systemu (`apps/api` / `apps/web`).
+- Zmiany infry/toolingu/roota/`packages/shared` (dotyczące wielu części) → **bez scope**:
+  `chore: ...`, `docs: ...`, ewentualnie `feat: ...` / `fix: ...`.
+- **Bez** linii `Co-Authored-By` (globalna reguła).
+
+Przykłady: `feat(api): chat backend (Socket.IO + REST)`, `fix(web): validate login inputs`,
+`chore: default dev stack with hot reload`, `docs: project setup notes`.

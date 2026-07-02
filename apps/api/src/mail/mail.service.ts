@@ -8,6 +8,7 @@ import {
   mailTreeLabel,
   normalizeMailLocale,
   resetCopy,
+  unreadDigestCopy,
   verifyCopy,
   type MailCopy,
   type MailLocale,
@@ -77,6 +78,10 @@ export class MailService {
     return `${this.webBase}/${locale}/login`;
   }
 
+  chatLink(locale: MailLocale): string {
+    return `${this.webBase}/${locale}/chat`;
+  }
+
   /** Link weryfikacyjny po prośbie o dostęp — ustawienie hasła i (jeśli dopasowano) wejście do drzewa. */
   async sendVerify(to: string, token: string, locale: string): Promise<void> {
     const l = normalizeMailLocale(locale);
@@ -106,6 +111,13 @@ export class MailService {
     const l = normalizeMailLocale(locale);
     const copy = approvedCopy(l, this.treeLabel(l));
     await this.deliver(to, copy, this.loginLink(l), l);
+  }
+
+  /** Przypomnienie o nieprzeczytanych wiadomościach czatu (cron po N dniach). */
+  async sendUnreadDigest(to: string, locale: string, count: number): Promise<void> {
+    const l = normalizeMailLocale(locale);
+    const copy = unreadDigestCopy(l, this.treeLabel(l), count);
+    await this.deliver(to, copy, this.chatLink(l), l);
   }
 
   /** Link do ustawienia nowego hasła. */

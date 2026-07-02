@@ -58,6 +58,10 @@ export class User {
   @Column({ type: 'timestamptz', nullable: true })
   tokenExpiresAt: Date | null;
 
+  /** Ostatnia aktywność (obecność w czacie). „Online" trzymamy w pamięci gateway'a. */
+  @Column({ type: 'timestamptz', nullable: true })
+  lastSeenAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

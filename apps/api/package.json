@@ -23,7 +23,10 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.1.27",
+    "@nestjs/schedule": "^6.1.3",
     "@nestjs/typeorm": "^11.0.0",
+    "@nestjs/websockets": "^11.1.27",
     "@rodno/shared": "workspace:*",
     "bcryptjs": "^2.4.3",
     "class-transformer": "^0.5.1",
@@ -33,7 +36,9 @@
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "typeorm": "^0.3.20"
+    "socket.io": "^4.8.3",
+    "typeorm": "^0.3.20",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
@@ -41,6 +46,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.5",
     "@types/nodemailer": "^6.4.17",
+    "@types/web-push": "^3.6.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
   }

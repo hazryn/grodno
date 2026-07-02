@@ -29,6 +29,7 @@ import {
   ParentChild,
   Partnership,
   Place,
+  User,
 } from '../database/entities';
 import { MediaService } from '../media/media.service';
 
@@ -77,6 +78,7 @@ export class IndividualsService {
     @InjectRepository(Media) private readonly mediaRepo: Repository<Media>,
     @InjectRepository(MediaTag) private readonly tagRepo: Repository<MediaTag>,
     @InjectRepository(Place) private readonly placeRepo: Repository<Place>,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly media: MediaService,
   ) {}
 
@@ -421,6 +423,11 @@ export class IndividualsService {
     // małżeństwa (ekran „Dane"): partner + MARR event (data/miejsce) + zdjęcie ślubu
     const marriages = await this.buildMarriages(id, partnerships, events, locale);
 
+    // czy osoba ma aktywne konto → można do niej napisać na czacie
+    const accountCount = await this.userRepo.count({
+      where: { individualId: id, isActive: true },
+    });
+
     return {
       id: indi.id,
       treeId: indi.treeId,
@@ -429,6 +436,7 @@ export class IndividualsService {
       names: indi.names,
       primaryName: indi.primaryName,
       isLiving: indi.isLiving,
+      hasAccount: accountCount > 0,
       birth,
       death,
       events: eventDtos,

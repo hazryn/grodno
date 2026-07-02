@@ -104,6 +104,29 @@ export function approvedCopy(locale: MailLocale, tree: string): MailCopy {
   };
 }
 
+export function unreadDigestCopy(locale: MailLocale, tree: string, count: number): MailCopy {
+  if (locale === 'en')
+    return {
+      subject: `You have unread messages in ${tree}`,
+      title: 'New messages waiting',
+      body: `<p>You have unread messages in <strong>${tree}</strong> across ${count} conversation(s).</p><p>Open the chat to read and reply.</p>`,
+      cta: 'Open chat',
+    };
+  if (locale === 'de')
+    return {
+      subject: `Ungelesene Nachrichten in ${tree}`,
+      title: 'Neue Nachrichten warten',
+      body: `<p>Du hast ungelesene Nachrichten in <strong>${tree}</strong> in ${count} Unterhaltung(en).</p><p>Öffne den Chat, um zu lesen und zu antworten.</p>`,
+      cta: 'Chat öffnen',
+    };
+  return {
+    subject: `Masz nieprzeczytane wiadomości w ${tree}`,
+    title: 'Czekają nowe wiadomości',
+    body: `<p>Masz nieprzeczytane wiadomości w <strong>${tree}</strong> w ${count} rozmow(ach).</p><p>Otwórz czat, aby przeczytać i odpisać.</p>`,
+    cta: 'Otwórz czat',
+  };
+}
+
 export function resetCopy(locale: MailLocale, tree: string): MailCopy {
   if (locale === 'en')
     return {

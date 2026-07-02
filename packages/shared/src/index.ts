@@ -48,3 +48,22 @@ export type { EventCategory, EventTypeDef } from './event-types.js';
 export { formatPersonName, votoLabel, femaleSurname, VOTO_LABELS } from './person-name.js';
 
 export type { PersonCard, Bundle, BundlePayload, SpouseRelation, Union } from './bundle.js';
+
+export type {
+  ConversationType,
+  ChatMessageType,
+  ParticipantRole,
+  PresenceStatus,
+  ChatContact,
+  ChatParticipant,
+  ChatAttachmentDto,
+  ChatReactionDto,
+  ChatMessageDto,
+  ConversationDto,
+  ChatTranslationDto,
+  TypingPayload,
+  ReadReceiptPayload,
+  PresencePayload,
+  ReactionUpdatePayload,
+  ConversationUpdatedPayload,
+} from './chat.js';

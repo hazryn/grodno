@@ -9,6 +9,7 @@ import {
   ParentChild,
   Partnership,
   Place,
+  User,
 } from '../database/entities';
 import { AuthModule } from '../auth/auth.module';
 import { IndividualsController } from './individuals.controller';
@@ -27,6 +28,7 @@ import { IndividualsService } from './individuals.service';
       Media,
       MediaTag,
       Place,
+      User,
     ]),
     AuthModule,
   ],

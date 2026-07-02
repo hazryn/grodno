@@ -151,6 +151,8 @@ export interface IndividualDto {
   primaryName: string;
   /** Czy żyjący (prywatność — ukrywanie danych dla niezalogowanych). */
   isLiving: boolean;
+  /** Czy osoba ma aktywne konto w aplikacji → można do niej napisać na czacie. */
+  hasAccount: boolean;
   birth: EventDto | null;
   death: EventDto | null;
   events: EventDto[];

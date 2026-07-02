@@ -11,6 +11,13 @@ import { Source } from './source.entity';
 import { Media } from './media.entity';
 import { MediaTag } from './media-tag.entity';
 import { User } from './user.entity';
+import { Conversation } from './conversation.entity';
+import { ConversationParticipant } from './conversation-participant.entity';
+import { Message } from './message.entity';
+import { MessageAttachment } from './message-attachment.entity';
+import { MessageReaction } from './message-reaction.entity';
+import { MessageTranslation } from './message-translation.entity';
+import { PushSubscription } from './push-subscription.entity';
 
 export {
   Tree,
@@ -26,6 +33,13 @@ export {
   Media,
   MediaTag,
   User,
+  Conversation,
+  ConversationParticipant,
+  Message,
+  MessageAttachment,
+  MessageReaction,
+  MessageTranslation,
+  PushSubscription,
 };
 
 export const ALL_ENTITIES = [
@@ -42,4 +56,11 @@ export const ALL_ENTITIES = [
   Media,
   MediaTag,
   User,
+  Conversation,
+  ConversationParticipant,
+  Message,
+  MessageAttachment,
+  MessageReaction,
+  MessageTranslation,
+  PushSubscription,
 ];

@@ -30,6 +30,8 @@ export default defineNuxtConfig({
     bundle: { optimizeTranslationDirective: false },
   },
   runtimeConfig: {
+    // Prywatne (tylko serwer/SSR): adres API w sieci kontenerów. Puste = użyj public.apiBase.
+    apiBaseServer: process.env.NUXT_API_BASE_SERVER || '',
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:5201/api',
       // Slug drzewa ładowanego po zalogowaniu (musi istnieć w bazie).

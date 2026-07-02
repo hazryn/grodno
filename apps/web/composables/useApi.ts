@@ -62,7 +62,7 @@ export interface EventPatch {
 }
 
 export function useApi() {
-  const base = useRuntimeConfig().public.apiBase as string;
+  const base = useApiBase();
   // Token z cookie (czytelne, działa też w SSR) → nagłówek Bearer na każdym żądaniu.
   const token = useCookie<string | null>('rodno_token');
   const authHeaders = (): Record<string, string> =>

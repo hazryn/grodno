@@ -18,7 +18,7 @@ const TOKEN_MAX_AGE = 60 * 60 * 24 * 7; // 7 dni — spójnie z JWT_EXPIRES_IN.
  * dane usera w useState (hydratowane przez plugins/auth.ts). useApi dokłada Bearer.
  */
 export function useAuth() {
-  const base = useRuntimeConfig().public.apiBase as string;
+  const base = useApiBase();
   const token = useCookie<string | null>('rodno_token', {
     maxAge: TOKEN_MAX_AGE,
     sameSite: 'lax',
@@ -49,8 +49,12 @@ export function useAuth() {
       user.value = await $fetch<AuthUser>(`${base}/auth/me`, {
         headers: { Authorization: `Bearer ${token.value}` },
       });
-    } catch {
-      logout();
+    } catch (e: unknown) {
+      // Wyloguj TYLKO gdy token odrzucony (401), nie przy chwilowej niedostępności API
+      // (np. restart backendu / SSR bez dostępu do sieci) — inaczej wywala sesję bez powodu.
+      const status = (e as { statusCode?: number; response?: { status?: number } })?.statusCode
+        ?? (e as { response?: { status?: number } })?.response?.status;
+      if (status === 401) logout();
     }
     return user.value;
   }

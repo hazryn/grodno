@@ -94,6 +94,9 @@ services:
       PORT: "5200"
       # Adres API widziany z PRZEGLĄDARKI (fetch jest po stronie klienta) → localhost:5201.
       NUXT_PUBLIC_API_BASE: http://localhost:5201/api
+      # Adres API widziany z SSR (wewnątrz sieci kontenerów) → serwis „api”. Bez tego SSR
+      # bije w localhost:5201 (czyli sam web) i /auth/me pada → wylogowanie przy każdym reloadzie.
+      NUXT_API_BASE_SERVER: http://api:5201/api
       # Slug drzewa ładowanego po zalogowaniu (musi istnieć w bazie).
       NUXT_PUBLIC_TREE_NAME: szejna
       # Treści strony publicznej (open source — podmień pod swoją rodzinę).
